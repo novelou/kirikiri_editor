@@ -17,6 +17,7 @@ class AppState {
     var selectedCharacterIndex by mutableStateOf(0)
     var pressedKeys by mutableStateOf(setOf<Key>())
     var exportFileName by mutableStateOf("output")
+    var exportMessage by mutableStateOf("")
 
 
     val uiItems: List<UiItem> by derivedStateOf {
@@ -212,7 +213,8 @@ class AppState {
     }
 
     fun export(fileName: String = "output.kt") {
-        exportScenario(scenarioItems,fileName)
+        val file = exportScenario(scenarioItems, fileName)
+        exportMessage = "Exported to ${file.name}"
     }
 }
 

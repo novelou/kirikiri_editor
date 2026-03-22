@@ -17,6 +17,7 @@ fun App() {
 
     MaterialTheme {
         val listState = rememberLazyListState()
+        val snackbarHostState = remember { SnackbarHostState() }
 
         LaunchedEffect(appState.uiItems.size) {
             if (appState.uiItems.isNotEmpty()) {
@@ -24,73 +25,85 @@ fun App() {
             }
         }
 
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(16.dp)
-                .onKeyEvent { event ->
-                    if (event.type == KeyEventType.KeyDown) {
-                        appState.pressedKeys += event.key
-                    } else if (event.type == KeyEventType.KeyUp) {
-                        appState.pressedKeys -= event.key
+        LaunchedEffect(appState.exportMessage) {
+            if (appState.exportMessage.isNotEmpty()) {
+                snackbarHostState.showSnackbar(appState.exportMessage)
+                appState.exportMessage = ""
+            }
+        }
+
+        Scaffold(
+            snackbarHost = { SnackbarHost(snackbarHostState) }
+        ) { paddingValues ->
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(paddingValues)
+                    .padding(16.dp)
+                    .onKeyEvent { event ->
+                        if (event.type == KeyEventType.KeyDown) {
+                            appState.pressedKeys += event.key
+                        } else if (event.type == KeyEventType.KeyUp) {
+                            appState.pressedKeys -= event.key
+                        }
+                        false
                     }
-                    false
+            ) {
+                Row {
+                    Button(onClick = { appState.undo() }) {
+                        Text("Undo")
+                    }
+                    Button(onClick = { appState.redo() }) {
+                        Text("Redo")
+                    }
+                    Spacer(modifier = Modifier.width(16.dp))
+                    TextField(
+                        value = appState.exportFileName,
+                        onValueChange = { appState.exportFileName = it },
+                        label = { Text("ファイル名") },
+                        modifier = Modifier.weight(1f)
+                    )
                 }
-        ) {
-            Row {
-                Button(onClick = { appState.undo() }) {
-                    Text("Undo")
-                }
-                Button(onClick = { appState.redo() }) {
-                    Text("Redo")
-                }
-                Spacer(modifier = Modifier.width(16.dp))
-                TextField(
-                    value = appState.exportFileName,
-                    onValueChange = { appState.exportFileName = it },
-                    label = { Text("ファイル名") },
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                ScenarioList(
+                    uiItems = appState.uiItems,
+                    listState = listState,
+                    onItemUpdate = { id, text, endTag ->
+                        appState.updateItem(id, text, endTag)
+                    },
+                    onCharacterChange = { id, charIndex ->
+                        appState.changeCharacterViaCommand(id, charIndex)
+                    },
+                    currentModifierKeys = appState.pressedKeys,
                     modifier = Modifier.weight(1f)
                 )
-            }
+                
+                Spacer(modifier = Modifier.height(8.dp))
 
-            Spacer(modifier = Modifier.height(8.dp))
+                Row {
+                    CharacterSelector(
+                        selectedIndex = appState.selectedCharacterIndex
+                    )
 
-            ScenarioList(
-                uiItems = appState.uiItems,
-                listState = listState,
-                onItemUpdate = { id, text, endTag ->
-                    appState.updateItem(id, text, endTag)
-                },
-                onCharacterChange = { id, charIndex ->
-                    appState.changeCharacterViaCommand(id, charIndex)
-                },
-                currentModifierKeys = appState.pressedKeys,
-                modifier = Modifier.weight(1f)
-            )
-            
-            Spacer(modifier = Modifier.height(8.dp))
+                    Button(onClick = {
+                        if (appState.exportFileName.isNotEmpty()) {
+                            appState.export(appState.exportFileName)
+                        }
+                    }) {
+                        Text("保存")
+                    }
+                }
 
-            Row {
-                CharacterSelector(
-                    selectedIndex = appState.selectedCharacterIndex
+                Spacer(modifier = Modifier.height(8.dp))
+                ScenarioInputArea(
+                    currentInput = appState.currentInput,
+                    onInputChange = { appState.currentInput = it },
+                    onKeyEvent = { appState.handleKeyEvent(it) }
                 )
 
-                Button(onClick = {
-                    if (appState.exportFileName.isNotEmpty()) {
-                        appState.export(appState.exportFileName)
-                    }
-                }) {
-                    Text("保存")
-                }
             }
-
-            Spacer(modifier = Modifier.height(8.dp))
-            ScenarioInputArea(
-                currentInput = appState.currentInput,
-                onInputChange = { appState.currentInput = it },
-                onKeyEvent = { appState.handleKeyEvent(it) }
-            )
-
         }
     }
 }
