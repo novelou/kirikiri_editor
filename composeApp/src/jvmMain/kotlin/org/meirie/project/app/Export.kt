@@ -4,7 +4,25 @@ import java.io.File
 import java.lang.StringBuilder
 import java.nio.charset.Charset
 
-fun exportScenario(items: List<ScenarioItem>) {
+fun getUniqueFileName(baseName: String): File {
+    val name = if (baseName.endsWith(".ks")) {
+        baseName.substringBeforeLast(".ks")
+    } else {
+        baseName
+    }
+    
+    var counter = 0
+    while (true) {
+        val fileName = "${name}_$counter.ks"
+        val file = File(fileName)
+        if (!file.exists()) {
+            return file
+        }
+        counter++
+    }
+}
+
+fun exportScenario(items: List<ScenarioItem>, fileName: String = "output") {
     val stringBuilder = StringBuilder()
     for (item in items) {
         when (item) {
@@ -31,7 +49,7 @@ fun exportScenario(items: List<ScenarioItem>) {
         }
     }
     
-    val file = File("output.ks")
+    val file = getUniqueFileName(fileName)
     file.writeBytes(byteArrayOf(0xEF.toByte(), 0xBB.toByte(), 0xBF.toByte()))
     file.appendText(stringBuilder.toString(), Charset.forName("UTF-8"))
     println("Exported scenario to ${file.absolutePath}")

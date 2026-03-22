@@ -44,6 +44,13 @@ fun App() {
                 Button(onClick = { appState.redo() }) {
                     Text("Redo")
                 }
+                Spacer(modifier = Modifier.width(16.dp))
+                TextField(
+                    value = appState.exportFileName,
+                    onValueChange = { appState.exportFileName = it },
+                    label = { Text("ファイル名") },
+                    modifier = Modifier.weight(1f)
+                )
             }
 
             Spacer(modifier = Modifier.height(8.dp))
@@ -63,23 +70,27 @@ fun App() {
             
             Spacer(modifier = Modifier.height(8.dp))
 
-            CharacterSelector(
-                selectedIndex = appState.selectedCharacterIndex
-            )
+            Row {
+                CharacterSelector(
+                    selectedIndex = appState.selectedCharacterIndex
+                )
 
-            Spacer(modifier = Modifier.height(8.dp))
-
-            Button(onClick = { appState.export() }, modifier = Modifier.fillMaxWidth()) {
-                Text("チャプターをエクスポート (output.ks)")
+                Button(onClick = {
+                    if (appState.exportFileName.isNotEmpty()) {
+                        appState.export(appState.exportFileName)
+                    }
+                }) {
+                    Text("保存")
+                }
             }
 
             Spacer(modifier = Modifier.height(8.dp))
-
             ScenarioInputArea(
                 currentInput = appState.currentInput,
                 onInputChange = { appState.currentInput = it },
                 onKeyEvent = { appState.handleKeyEvent(it) }
             )
+
         }
     }
 }

@@ -16,6 +16,8 @@ class AppState {
     var currentInput by mutableStateOf("")
     var selectedCharacterIndex by mutableStateOf(0)
     var pressedKeys by mutableStateOf(setOf<Key>())
+    var exportFileName by mutableStateOf("output")
+
 
     val uiItems: List<UiItem> by derivedStateOf {
         val result = mutableListOf<UiItem>()
@@ -179,37 +181,38 @@ class AppState {
     }
 
     fun undo(){
-        println("undo called, undoStack size: ${undoStack.size}")
         if (undoStack.isNotEmpty()) {
-            println("undo stack is not empty")
             val command = undoStack.removeLast()
             command.undo()
             redoStack.add(command)
-        } else {
-            println("undo stack is empty")
+            if (redoStack.size > 50) {
+                redoStack.removeAt(0)
+            }
         }
     }
 
     fun redo(){
-        println("redo called")
         if (redoStack.isNotEmpty()) {
-            println("redo stack is not empty")
             val command = redoStack.removeLast()
             command.execute()
             undoStack.add(command)
+            if(undoStack.size > 50){
+                undoStack.removeAt(0)
+            }
         }
     }
 
     private fun executeCommand(command: Command){
-        println("executeCommand called, undoStack size before: ${undoStack.size}")
         command.execute()
         undoStack.add(command)
+        if(undoStack.size > 50){
+            undoStack.removeAt(0)
+        }
         redoStack.clear()
-        println("executeCommand finished, undoStack size after: ${undoStack.size}")
     }
 
-    fun export() {
-        exportScenario(scenarioItems)
+    fun export(fileName: String = "output.kt") {
+        exportScenario(scenarioItems,fileName)
     }
 }
 
