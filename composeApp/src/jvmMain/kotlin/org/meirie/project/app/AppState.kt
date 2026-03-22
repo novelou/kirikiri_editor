@@ -2,13 +2,20 @@ package org.meirie.project.app
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.input.key.*
+import org.meirie.project.app.command.AddItemCommand
+import org.meirie.project.app.command.ChangeCharacterCommand
+import org.meirie.project.app.command.Command
+import org.meirie.project.app.command.UpdateItemCommand
 
 val characters = listOf("None", "キャラA", "キャラB", "キャラC", "キャラD")
 
 class AppState {
     val scenarioItems = mutableStateListOf<ScenarioItem>()
+    private val undoStack = mutableListOf<Command>()
+    private val redoStack = mutableListOf<Command>()
     var currentInput by mutableStateOf("")
     var selectedCharacterIndex by mutableStateOf(0)
+    var pressedKeys by mutableStateOf(setOf<Key>())
 
     val uiItems: List<UiItem> by derivedStateOf {
         val result = mutableListOf<UiItem>()
@@ -68,6 +75,12 @@ class AppState {
     }
 
     fun handleKeyEvent(keyEvent: KeyEvent): Boolean {
+        if (keyEvent.type == KeyEventType.KeyDown) {
+            pressedKeys = pressedKeys + keyEvent.key
+        } else if (keyEvent.type == KeyEventType.KeyUp) {
+            pressedKeys = pressedKeys - keyEvent.key
+        }
+        
         if (keyEvent.type != KeyEventType.KeyDown) return false
         
         return when (keyEvent.key) {
@@ -90,13 +103,109 @@ class AppState {
                 val charName = if (selectedCharacterIndex > 0) characters[selectedCharacterIndex] else null
                 
                 if (currentInput.isNotEmpty() || endTag != "[r]\n") {
-                    scenarioItems.add(ScenarioItem.TalkBlock(charName, currentInput, endTag))
+                    val newItem = ScenarioItem.TalkBlock(charName, currentInput, endTag)
+                    executeCommand(AddItemCommand(this, newItem))  // Command経由で追加
                     currentInput = ""
                 }
                 true
             }
             else -> false
         }
+    }
+
+    fun updateItem(id: String, text: String, endTag: String) {
+        val index = scenarioItems.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val item = scenarioItems[index]
+            if (item is ScenarioItem.TalkBlock) {
+                val oldText = item.text
+                val oldEndTag = item.endTag
+                executeCommand(UpdateItemCommand(this, id, oldText, oldEndTag, text, endTag))
+            }
+        }
+    }
+
+    fun changeCharacter(id: String, characterIndex: Int) {
+        val index = scenarioItems.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val charName = if (characterIndex > 0) characters[characterIndex] else null
+
+            val clickedItem = scenarioItems[index]
+            if (clickedItem is ScenarioItem.TalkBlock) {
+                val oldCharName = clickedItem.characterName
+                
+                // Go backwards
+                var start = index
+                while (start > 0) {
+                    val prev = scenarioItems[start - 1]
+                    if (prev is ScenarioItem.TalkBlock && prev.characterName == oldCharName) {
+                        start--
+                    } else {
+                        break
+                    }
+                }
+                
+                // Go forwards
+                var end = index
+                while (end < scenarioItems.size - 1) {
+                    val next = scenarioItems[end + 1]
+                    if (next is ScenarioItem.TalkBlock && next.characterName == oldCharName) {
+                        end++
+                    } else {
+                        break
+                    }
+                }
+                
+                for (i in start..end) {
+                    val item = scenarioItems[i]
+                    if (item is ScenarioItem.TalkBlock) {
+                        scenarioItems[i] = item.copy(characterName = charName)
+                    }
+                }
+            }
+        }
+    }
+
+    fun changeCharacterViaCommand(id: String, newCharacterIndex: Int) {
+        val index = scenarioItems.indexOfFirst { it.id == id }
+        if (index != -1) {
+            val clickedItem = scenarioItems[index]
+            if (clickedItem is ScenarioItem.TalkBlock) {
+                val oldCharName = clickedItem.characterName
+                val oldCharacterIndex = characters.indexOf(oldCharName ?: "None")  // oldCharNameからインデックスを取得
+                executeCommand(ChangeCharacterCommand(this, id, oldCharacterIndex, newCharacterIndex))
+            }
+        }
+    }
+
+    fun undo(){
+        println("undo called, undoStack size: ${undoStack.size}")
+        if (undoStack.isNotEmpty()) {
+            println("undo stack is not empty")
+            val command = undoStack.removeLast()
+            command.undo()
+            redoStack.add(command)
+        } else {
+            println("undo stack is empty")
+        }
+    }
+
+    fun redo(){
+        println("redo called")
+        if (redoStack.isNotEmpty()) {
+            println("redo stack is not empty")
+            val command = redoStack.removeLast()
+            command.execute()
+            undoStack.add(command)
+        }
+    }
+
+    private fun executeCommand(command: Command){
+        println("executeCommand called, undoStack size before: ${undoStack.size}")
+        command.execute()
+        undoStack.add(command)
+        redoStack.clear()
+        println("executeCommand finished, undoStack size after: ${undoStack.size}")
     }
 
     fun export() {
@@ -106,3 +215,5 @@ class AppState {
 
 @Composable
 fun rememberAppState() = remember { AppState() }
+
+

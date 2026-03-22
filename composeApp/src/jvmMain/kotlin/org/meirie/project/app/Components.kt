@@ -2,23 +2,34 @@ package org.meirie.project.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.input.key.KeyEvent
-import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.*
+import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
 @Composable
-fun ScenarioList(uiItems: List<UiItem>, listState: LazyListState, modifier: Modifier = Modifier) {
+fun ScenarioList(
+    uiItems: List<UiItem>, 
+    listState: LazyListState, 
+    onItemUpdate: (String, String, String) -> Unit,
+    onCharacterChange: (String, Int) -> Unit,
+    currentModifierKeys: Set<Key>,
+    modifier: Modifier = Modifier
+) {
     LazyColumn(
         state = listState,
         modifier = modifier
@@ -28,7 +39,12 @@ fun ScenarioList(uiItems: List<UiItem>, listState: LazyListState, modifier: Modi
     ) {
         items(uiItems) { item ->
             when (item) {
-                is UiItem.CharacterGroup -> CharacterGroupItem(item)
+                is UiItem.CharacterGroup -> CharacterGroupItem(
+                    item = item, 
+                    onItemUpdate = onItemUpdate, 
+                    onCharacterChange = onCharacterChange,
+                    currentModifierKeys = currentModifierKeys
+                )
                 is UiItem.Event -> EventItem(item)
                 is UiItem.Command -> CommandItem(item)
             }
@@ -37,7 +53,12 @@ fun ScenarioList(uiItems: List<UiItem>, listState: LazyListState, modifier: Modi
 }
 
 @Composable
-fun CharacterGroupItem(item: UiItem.CharacterGroup) {
+fun CharacterGroupItem(
+    item: UiItem.CharacterGroup,
+    onItemUpdate: (String, String, String) -> Unit,
+    onCharacterChange: (String, Int) -> Unit,
+    currentModifierKeys: Set<Key>
+) {
     Column(
         modifier = Modifier
             .padding(vertical = 6.dp)
@@ -46,25 +67,53 @@ fun CharacterGroupItem(item: UiItem.CharacterGroup) {
             .border(2.dp, MaterialTheme.colorScheme.primary.copy(alpha = 0.5f), shape = MaterialTheme.shapes.medium)
             .padding(12.dp)
     ) {
-        if (!item.characterName.isNullOrEmpty()) {
-            Text(
-                text = "[${item.characterName}]",
-                fontWeight = FontWeight.Bold,
-                fontSize = 18.sp,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.padding(bottom = 8.dp)
-            )
-        }
+        val displayName = if (!item.characterName.isNullOrEmpty()) "[${item.characterName}]" else "[None]"
+        val color = if (!item.characterName.isNullOrEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
+        
+        Text(
+            text = displayName,
+            fontWeight = FontWeight.Bold,
+            fontSize = 18.sp,
+            color = color,
+            modifier = Modifier
+                .padding(bottom = 8.dp)
+                .pointerInput(currentModifierKeys) {
+                    detectTapGestures(
+                        onTap = {
+                            val charIndex = when {
+                                currentModifierKeys.contains(Key.F1) -> 0
+                                currentModifierKeys.contains(Key.F2) -> 1
+                                currentModifierKeys.contains(Key.F3) -> 2
+                                currentModifierKeys.contains(Key.F4) -> 3
+                                currentModifierKeys.contains(Key.F5) -> 4
+                                else -> -1
+                            }
+                            if (charIndex != -1 && item.boxes.isNotEmpty()) {
+                                val firstLineId = item.boxes.first().lines.firstOrNull()?.id
+                                if (firstLineId != null) {
+                                    onCharacterChange(firstLineId, charIndex)
+                                }
+                            }
+                        }
+                    )
+                }
+        )
         
         item.boxes.forEachIndexed { index, box ->
             if (index > 0) Spacer(modifier = Modifier.height(8.dp))
-            DialogueBoxItem(box)
+            DialogueBoxItem(
+                box = box, 
+                onItemUpdate = onItemUpdate
+            )
         }
     }
 }
 
 @Composable
-fun DialogueBoxItem(box: DialogueBox) {
+fun DialogueBoxItem(
+    box: DialogueBox, 
+    onItemUpdate: (String, String, String) -> Unit
+) {
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -73,28 +122,98 @@ fun DialogueBoxItem(box: DialogueBox) {
             .padding(8.dp)
     ) {
         box.lines.forEach { line ->
-            val symbol = when {
-                line.endTag.startsWith("[r]") -> "↓"
-                line.endTag.startsWith("[l][r]") -> "▼"
-                line.endTag.startsWith("[p]") -> "▶"
-                line.endTag.startsWith("[l][cm]") -> "↓ (Clear)"
-                else -> ""
+            var isEditing by remember(line.id, line.text, line.endTag) { mutableStateOf(false) }
+            var editText by remember(line.id, line.text) { mutableStateOf(line.text) }
+            var editTag by remember(line.id, line.endTag) { mutableStateOf(line.endTag.trim()) }
+
+            val symbol = when (val trimmedTag = line.endTag.trim()) {
+                "[r]" -> "↓"
+                "[l][r]" -> "▼"
+                "[p]" -> "▶"
+                "[l][cm]" -> "↓ (Clear)"
+                else -> trimmedTag
             }
-            Row(
-                modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                horizontalArrangement = Arrangement.SpaceBetween
-            ) {
-                Text(
-                    text = line.text,
-                    modifier = Modifier.weight(1f)
-                )
-                if (symbol.isNotEmpty()) {
-                    Text(
-                        text = symbol,
-                        color = MaterialTheme.colorScheme.secondary,
-                        fontWeight = FontWeight.Bold,
-                        modifier = Modifier.padding(start = 8.dp)
+            
+            val focusRequester = remember { FocusRequester() }
+
+            if (isEditing) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    OutlinedTextField(
+                        value = editText,
+                        onValueChange = { editText = it },
+                        modifier = Modifier
+                            .weight(1f)
+                            .focusRequester(focusRequester)
+                            .onPreviewKeyEvent { event ->
+                                when (event.type) {
+                                    KeyEventType.KeyDown -> {
+                                        when (event.key) {
+                                            Key.Enter -> {
+                                                val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                                                onItemUpdate(line.id, editText, newTag)
+                                                isEditing = false
+                                                true
+                                            }
+                                            Key.Escape -> {
+                                                editText = line.text
+                                                editTag = line.endTag.trim()
+                                                isEditing = false
+                                                true
+                                            }
+                                            else -> false
+                                        }
+                                    }
+                                    else -> false
+                                }
+                            },
+                        singleLine = true
                     )
+                    OutlinedTextField(
+                        value = editTag,
+                        onValueChange = { editTag = it },
+                        modifier = Modifier.width(100.dp),
+                        singleLine = true,
+                        label = { Text("Tag") }
+                    )
+                    Button(
+                        onClick = {
+                            val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                            onItemUpdate(line.id, editText, newTag)
+                            isEditing = false
+                        }
+                    ) {
+                        Text("Save")
+                    }
+                }
+                
+                LaunchedEffect(Unit) {
+                    focusRequester.requestFocus()
+                }
+            } else {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 2.dp)
+                        .clickable {
+                            isEditing = true
+                        },
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = line.text,
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (symbol.isNotEmpty()) {
+                        Text(
+                            text = symbol,
+                            color = MaterialTheme.colorScheme.secondary,
+                            fontWeight = FontWeight.Bold,
+                            modifier = Modifier.padding(start = 8.dp)
+                        )
+                    }
                 }
             }
         }
