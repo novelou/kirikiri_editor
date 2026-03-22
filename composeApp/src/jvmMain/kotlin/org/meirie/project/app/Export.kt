@@ -10,7 +10,7 @@ fun exportScenario(items: List<ScenarioItem>) {
         when (item) {
             is ScenarioItem.TalkBlock -> {
                 if (!item.characterName.isNullOrEmpty()) {
-                    stringBuilder.append("{${item.characterName}}\n")
+                    stringBuilder.append("[${item.characterName}]\n")
                 }
                 if (item.text.isNotEmpty()) {
                     stringBuilder.append(item.text).append("\n")
