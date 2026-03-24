@@ -7,6 +7,8 @@ sealed class ScenarioItem {
         val characterName: String?,
         val text: String,
         val endTag: String,
+        val characterFace: String = "通常",
+        val groupBreak: Boolean = false,
         override val id: String = java.util.UUID.randomUUID().toString()
     ) : ScenarioItem()
 

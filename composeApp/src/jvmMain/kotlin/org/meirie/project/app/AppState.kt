@@ -5,6 +5,7 @@ import androidx.compose.ui.input.key.*
 import org.meirie.project.app.command.AddItemCommand
 import org.meirie.project.app.command.ChangeCharacterCommand
 import org.meirie.project.app.command.Command
+import org.meirie.project.app.command.UpdateCharacterGroupFaceCommand
 import org.meirie.project.app.command.UpdateItemCommand
 
 val characters = listOf("None", "キャラA", "キャラB", "キャラC", "キャラD")
@@ -36,20 +37,23 @@ class AppState {
         fun flushCharacter() {
             flushBox()
             if (currentBoxes.isNotEmpty()) {
-                result.add(UiItem.CharacterGroup(currentCharacterName, currentBoxes.toList()))
+                val characterFace = currentBoxes.firstOrNull()?.lines?.firstOrNull()?.characterFace ?: "通常"
+                result.add(UiItem.CharacterGroup(currentCharacterName, currentBoxes.toList(), characterFace))
                 currentBoxes.clear()
             }
         }
 
         var startNewBoxNext = false
+        var previousItemWasGroupBreak = false
 
         for (item in scenarioItems) {
             when (item) {
                 is ScenarioItem.TalkBlock -> {
-                    if (item.characterName != currentCharacterName) {
+                    if (item.characterName != currentCharacterName || previousItemWasGroupBreak) {
                         flushCharacter()
                         currentCharacterName = item.characterName
                         startNewBoxNext = false
+                        previousItemWasGroupBreak = false
                     } else if (startNewBoxNext) {
                         flushBox()
                         startNewBoxNext = false
@@ -60,16 +64,20 @@ class AppState {
                     if (item.endTag.contains("[cm]")) {
                         startNewBoxNext = true
                     }
+                    
+                    previousItemWasGroupBreak = item.groupBreak
                 }
                 is ScenarioItem.CharaEvent -> {
                     flushCharacter()
                     result.add(UiItem.Event(item))
                     currentCharacterName = null
+                    previousItemWasGroupBreak = false
                 }
                 is ScenarioItem.CommandBlock -> {
                     flushCharacter()
                     result.add(UiItem.Command(item))
                     currentCharacterName = null
+                    previousItemWasGroupBreak = false
                 }
             }
         }
@@ -103,10 +111,29 @@ class AppState {
                     else -> "[r]\n"
                 }
                 
+                val groupBreak = isCtrlPressed && isShiftPressed
+                
                 val charName = if (selectedCharacterIndex > 0) characters[selectedCharacterIndex] else null
                 
                 if (currentInput.isNotEmpty() || endTag != "[r]\n") {
-                    val newItem = ScenarioItem.TalkBlock(charName, currentInput, endTag)
+                    // 追加する前に、直前の同じキャラクターのメッセージの表情を引き継ぐ（groupBreakにかかわらず）
+                    var faceToInherit = "通常"
+                    for (i in scenarioItems.indices.reversed()) {
+                        val item = scenarioItems[i]
+                        if (item is ScenarioItem.TalkBlock) {
+                            if (item.characterName == charName) {
+                                // 途中で別のグループに分かれていても、直近の同じキャラクターの発言から表情を引き継ぐ
+                                faceToInherit = item.characterFace
+                                break
+                            } else {
+                                break // キャラクターが変わったら探索終了
+                            }
+                        } else {
+                            break // 他の種類のアイテム（イベントなど）があったら探索終了
+                        }
+                    }
+
+                    val newItem = ScenarioItem.TalkBlock(charName, currentInput, endTag, characterFace = faceToInherit, groupBreak = groupBreak)
                     executeCommand(AddItemCommand(this, newItem))  // Command経由で追加
                     currentInput = ""
                 }
@@ -137,22 +164,22 @@ class AppState {
             if (clickedItem is ScenarioItem.TalkBlock) {
                 val oldCharName = clickedItem.characterName
                 
-                // Go backwards
+                // Go backwards - stop at groupBreak
                 var start = index
                 while (start > 0) {
                     val prev = scenarioItems[start - 1]
-                    if (prev is ScenarioItem.TalkBlock && prev.characterName == oldCharName) {
+                    if (prev is ScenarioItem.TalkBlock && prev.characterName == oldCharName && !prev.groupBreak) {
                         start--
                     } else {
                         break
                     }
                 }
                 
-                // Go forwards
+                // Go forwards - stop at groupBreak
                 var end = index
                 while (end < scenarioItems.size - 1) {
                     val next = scenarioItems[end + 1]
-                    if (next is ScenarioItem.TalkBlock && next.characterName == oldCharName) {
+                    if (next is ScenarioItem.TalkBlock && next.characterName == oldCharName && !next.groupBreak) {
                         end++
                     } else {
                         break
@@ -179,6 +206,10 @@ class AppState {
                 executeCommand(ChangeCharacterCommand(this, id, oldCharacterIndex, newCharacterIndex))
             }
         }
+    }
+
+    fun updateCharacterGroupFace(characterName: String?, newFace: String, firstItemId: String) {
+        executeCommand(UpdateCharacterGroupFaceCommand(this, characterName, firstItemId, newFace))
     }
 
     fun undo(){
@@ -220,5 +251,3 @@ class AppState {
 
 @Composable
 fun rememberAppState() = remember { AppState() }
-
-

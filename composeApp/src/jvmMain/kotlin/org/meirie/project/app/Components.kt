@@ -27,6 +27,7 @@ fun ScenarioList(
     listState: LazyListState, 
     onItemUpdate: (String, String, String) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
+    onCharacterGroupFaceChange: (String?, String, String) -> Unit,
     currentModifierKeys: Set<Key>,
     modifier: Modifier = Modifier
 ) {
@@ -43,6 +44,7 @@ fun ScenarioList(
                     item = item, 
                     onItemUpdate = onItemUpdate, 
                     onCharacterChange = onCharacterChange,
+                    onCharacterGroupFaceChange = onCharacterGroupFaceChange,
                     currentModifierKeys = currentModifierKeys
                 )
                 is UiItem.Event -> EventItem(item)
@@ -57,8 +59,13 @@ fun CharacterGroupItem(
     item: UiItem.CharacterGroup,
     onItemUpdate: (String, String, String) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
+    onCharacterGroupFaceChange: (String?, String, String) -> Unit,
     currentModifierKeys: Set<Key>
 ) {
+    val faceOptions = listOf("通常", "笑", "泣")
+    var selectedFace by remember(item.characterFace) { mutableStateOf(item.characterFace) }
+    var expandedFace by remember { mutableStateOf(false) }
+    
     Column(
         modifier = Modifier
             .padding(vertical = 6.dp)
@@ -70,34 +77,67 @@ fun CharacterGroupItem(
         val displayName = if (!item.characterName.isNullOrEmpty()) "[${item.characterName}]" else "[None]"
         val color = if (!item.characterName.isNullOrEmpty()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outline
         
-        Text(
-            text = displayName,
-            fontWeight = FontWeight.Bold,
-            fontSize = 18.sp,
-            color = color,
+        Row(
             modifier = Modifier
                 .padding(bottom = 8.dp)
-                .pointerInput(currentModifierKeys) {
-                    detectTapGestures(
-                        onTap = {
-                            val charIndex = when {
-                                currentModifierKeys.contains(Key.F1) -> 0
-                                currentModifierKeys.contains(Key.F2) -> 1
-                                currentModifierKeys.contains(Key.F3) -> 2
-                                currentModifierKeys.contains(Key.F4) -> 3
-                                currentModifierKeys.contains(Key.F5) -> 4
-                                else -> -1
-                            }
-                            if (charIndex != -1 && item.boxes.isNotEmpty()) {
-                                val firstLineId = item.boxes.first().lines.firstOrNull()?.id
-                                if (firstLineId != null) {
-                                    onCharacterChange(firstLineId, charIndex)
+                .fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(
+                text = displayName,
+                fontWeight = FontWeight.Bold,
+                fontSize = 18.sp,
+                color = color,
+                modifier = Modifier
+                    .pointerInput(currentModifierKeys) {
+                        detectTapGestures(
+                            onTap = {
+                                val charIndex = when {
+                                    currentModifierKeys.contains(Key.F1) -> 0
+                                    currentModifierKeys.contains(Key.F2) -> 1
+                                    currentModifierKeys.contains(Key.F3) -> 2
+                                    currentModifierKeys.contains(Key.F4) -> 3
+                                    currentModifierKeys.contains(Key.F5) -> 4
+                                    else -> -1
+                                }
+                                if (charIndex != -1 && item.boxes.isNotEmpty()) {
+                                    val firstLineId = item.boxes.first().lines.firstOrNull()?.id
+                                    if (firstLineId != null) {
+                                        onCharacterChange(firstLineId, charIndex)
+                                    }
                                 }
                             }
-                        }
-                    )
+                        )
+                    }
+            )
+            
+            Box(modifier = Modifier.width(120.dp)) {
+                Button(
+                    onClick = { expandedFace = true },
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Text(selectedFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                    Text("▼", fontSize = 12.sp)
                 }
-        )
+                DropdownMenu(
+                    expanded = expandedFace,
+                    onDismissRequest = { expandedFace = false }
+                ) {
+                    faceOptions.forEach { face ->
+                        DropdownMenuItem(
+                            text = { Text(face) },
+                            onClick = {
+                                selectedFace = face
+                                expandedFace = false
+                                // 変更：firstItemIdを渡すようにしました
+                                onCharacterGroupFaceChange(item.characterName, face, item.boxes.first().lines.first().id)
+                            }
+                        )
+                    }
+                }
+            }
+        }
         
         item.boxes.forEachIndexed { index, box ->
             if (index > 0) Spacer(modifier = Modifier.height(8.dp))
@@ -111,9 +151,11 @@ fun CharacterGroupItem(
 
 @Composable
 fun DialogueBoxItem(
-    box: DialogueBox, 
+    box: DialogueBox,
     onItemUpdate: (String, String, String) -> Unit
 ) {
+    val faceOptions = listOf("通常", "笑", "泣")
+
     Column(
         modifier = Modifier
             .fillMaxWidth()
@@ -125,6 +167,8 @@ fun DialogueBoxItem(
             var isEditing by remember(line.id, line.text, line.endTag) { mutableStateOf(false) }
             var editText by remember(line.id, line.text) { mutableStateOf(line.text) }
             var editTag by remember(line.id, line.endTag) { mutableStateOf(line.endTag.trim()) }
+            var selectedFace by remember(line.id, line.characterFace) { mutableStateOf(line.characterFace) }
+            var expandedFace by remember { mutableStateOf(false) }
 
             val symbol = when (val trimmedTag = line.endTag.trim()) {
                 "[r]" -> "↓"
@@ -133,62 +177,99 @@ fun DialogueBoxItem(
                 "[l][cm]" -> "↓ (Clear)"
                 else -> trimmedTag
             }
-            
+
             val focusRequester = remember { FocusRequester() }
 
             if (isEditing) {
-                Row(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                Column(
+                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
                 ) {
-                    OutlinedTextField(
-                        value = editText,
-                        onValueChange = { editText = it },
-                        modifier = Modifier
-                            .weight(1f)
-                            .focusRequester(focusRequester)
-                            .onPreviewKeyEvent { event ->
-                                when (event.type) {
-                                    KeyEventType.KeyDown -> {
-                                        when (event.key) {
-                                            Key.Enter -> {
-                                                val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                                                onItemUpdate(line.id, editText, newTag)
-                                                isEditing = false
-                                                true
-                                            }
-                                            Key.Escape -> {
-                                                editText = line.text
-                                                editTag = line.endTag.trim()
-                                                isEditing = false
-                                                true
-                                            }
-                                            else -> false
-                                        }
-                                    }
-                                    else -> false
-                                }
-                            },
-                        singleLine = true
-                    )
-                    OutlinedTextField(
-                        value = editTag,
-                        onValueChange = { editTag = it },
-                        modifier = Modifier.width(100.dp),
-                        singleLine = true,
-                        label = { Text("Tag") }
-                    )
-                    Button(
-                        onClick = {
-                            val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                            onItemUpdate(line.id, editText, newTag)
-                            isEditing = false
-                        }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        Text("Save")
+                        OutlinedTextField(
+                            value = editText,
+                            onValueChange = { editText = it },
+                            modifier = Modifier
+                                .weight(1f)
+                                .focusRequester(focusRequester)
+                                .onPreviewKeyEvent { event ->
+                                    when (event.type) {
+                                        KeyEventType.KeyDown -> {
+                                            when (event.key) {
+                                                Key.Enter -> {
+                                                    val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                                                    onItemUpdate(line.id, editText, newTag) // 変更：4つ目の引数(face)を削除
+                                                    isEditing = false
+                                                    true
+                                                }
+                                                Key.Escape -> {
+                                                    editText = line.text
+                                                    editTag = line.endTag.trim()
+                                                    selectedFace = line.characterFace
+                                                    isEditing = false
+                                                    true
+                                                }
+                                                else -> false
+                                            }
+                                        }
+                                        else -> false
+                                    }
+                                },
+                            singleLine = true
+                        )
+                        OutlinedTextField(
+                            value = editTag,
+                            onValueChange = { editTag = it },
+                            modifier = Modifier.width(100.dp),
+                            singleLine = true,
+                            label = { Text("Tag") }
+                        )
+                        Button(
+                            onClick = {
+                                val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                                onItemUpdate(line.id, editText, newTag) // 変更：4つ目の引数(face)を削除
+                                isEditing = false
+                            }
+                        ) {
+                            Text("Save")
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(4.dp))
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Box(modifier = Modifier.width(150.dp)) {
+                            Button(
+                                onClick = { expandedFace = true },
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text(selectedFace, modifier = Modifier.weight(1f))
+                                Text("▼")
+                            }
+                            DropdownMenu(
+                                expanded = expandedFace,
+                                onDismissRequest = { expandedFace = false }
+                            ) {
+                                faceOptions.forEach { face ->
+                                    DropdownMenuItem(
+                                        text = { Text(face) },
+                                        onClick = {
+                                            selectedFace = face
+                                            expandedFace = false
+                                        }
+                                    )
+                                }
+                            }
+                        }
                     }
                 }
-                
+
                 LaunchedEffect(Unit) {
                     focusRequester.requestFocus()
                 }
@@ -200,12 +281,14 @@ fun DialogueBoxItem(
                         .clickable {
                             isEditing = true
                         },
-                    horizontalArrangement = Arrangement.SpaceBetween
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
                 ) {
-                    Text(
-                        text = line.text,
-                        modifier = Modifier.weight(1f)
-                    )
+                    Column(modifier = Modifier.weight(1f)) {
+                        Text(
+                            text = line.text
+                        )
+                    }
                     if (symbol.isNotEmpty()) {
                         Text(
                             text = symbol,

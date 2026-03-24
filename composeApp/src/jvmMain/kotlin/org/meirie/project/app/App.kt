@@ -5,6 +5,7 @@ import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.key
@@ -33,7 +34,8 @@ fun App() {
         }
 
         Scaffold(
-            snackbarHost = { SnackbarHost(snackbarHostState) }
+            snackbarHost = { SnackbarHost(snackbarHostState) },
+            containerColor = Color(0xFFFFFF)
         ) { paddingValues ->
             Column(
                 modifier = Modifier
@@ -75,6 +77,9 @@ fun App() {
                     },
                     onCharacterChange = { id, charIndex ->
                         appState.changeCharacterViaCommand(id, charIndex)
+                    },
+                    onCharacterGroupFaceChange = { characterName, face, firstItemId ->
+                        appState.updateCharacterGroupFace(characterName, face, firstItemId)
                     },
                     currentModifierKeys = appState.pressedKeys,
                     modifier = Modifier.weight(1f)
