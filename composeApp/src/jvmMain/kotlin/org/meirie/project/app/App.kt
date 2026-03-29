@@ -81,6 +81,9 @@ fun App() {
                     onCharacterGroupFaceChange = { characterName, face, firstItemId ->
                         appState.updateCharacterGroupFace(characterName, face, firstItemId)
                     },
+                    onCharaFaceChange = { id, face ->
+                        appState.updateCharaFace(id, face)
+                    },
                     currentModifierKeys = appState.pressedKeys,
                     modifier = Modifier.weight(1f)
                 )

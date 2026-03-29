@@ -9,6 +9,7 @@ import org.meirie.project.app.command.UpdateCharacterGroupFaceCommand
 import org.meirie.project.app.command.UpdateItemCommand
 
 val characters = listOf("None", "キャラA", "キャラB", "キャラC", "キャラD")
+val characterFaceOptions = listOf("通常", "笑", "泣")
 
 class AppState {
     val scenarioItems = mutableStateListOf<ScenarioItem>()
@@ -16,6 +17,7 @@ class AppState {
     private val redoStack = mutableListOf<Command>()
     var currentInput by mutableStateOf("")
     var selectedCharacterIndex by mutableStateOf(0)
+    private var selectedCharacterIndexBeforeFunctionKeyPress: Int? by mutableStateOf(null)
     var pressedKeys by mutableStateOf(setOf<Key>())
     var exportFileName by mutableStateOf("output")
     var exportMessage by mutableStateOf("")
@@ -25,7 +27,7 @@ class AppState {
         val result = mutableListOf<UiItem>()
         var currentCharacterName: String? = null
         val currentBoxes = mutableListOf<DialogueBox>()
-        val currentLines = mutableListOf<ScenarioItem.TalkBlock>()
+        val currentLines = mutableListOf<DialogueLine>()
         
         fun flushBox() {
             if (currentLines.isNotEmpty()) {
@@ -37,7 +39,12 @@ class AppState {
         fun flushCharacter() {
             flushBox()
             if (currentBoxes.isNotEmpty()) {
-                val characterFace = currentBoxes.firstOrNull()?.lines?.firstOrNull()?.characterFace ?: "通常"
+                val characterFace = currentBoxes
+                    .asSequence()
+                    .flatMap { it.lines.asSequence() }
+                    .mapNotNull { (it as? DialogueLine.Talk)?.item?.characterFace }
+                    .firstOrNull()
+                    ?: "通常"
                 result.add(UiItem.CharacterGroup(currentCharacterName, currentBoxes.toList(), characterFace))
                 currentBoxes.clear()
             }
@@ -59,7 +66,7 @@ class AppState {
                         startNewBoxNext = false
                     }
                     
-                    currentLines.add(item)
+                    currentLines.add(DialogueLine.Talk(item))
                     
                     if (item.endTag.contains("[cm]")) {
                         startNewBoxNext = true
@@ -79,6 +86,14 @@ class AppState {
                     currentCharacterName = null
                     previousItemWasGroupBreak = false
                 }
+                is ScenarioItem.CharaFace -> {
+                    if (startNewBoxNext) {
+                        flushBox()
+                        startNewBoxNext = false
+                    }
+                    currentLines.add(DialogueLine.Face(item))
+                    previousItemWasGroupBreak = false
+                }
             }
         }
         flushCharacter()
@@ -86,21 +101,85 @@ class AppState {
     }
 
     fun handleKeyEvent(keyEvent: KeyEvent): Boolean {
+        val previousPressedKeys = pressedKeys
+
         if (keyEvent.type == KeyEventType.KeyDown) {
             pressedKeys = pressedKeys + keyEvent.key
         } else if (keyEvent.type == KeyEventType.KeyUp) {
             pressedKeys = pressedKeys - keyEvent.key
+            if (!pressedKeys.containsAnyFunctionKey()) {
+                selectedCharacterIndexBeforeFunctionKeyPress = null
+            }
         }
         
         if (keyEvent.type != KeyEventType.KeyDown) return false
+
+        if (keyEvent.key.isFunctionKey() && previousPressedKeys.contains(keyEvent.key)) {
+            // Ignore auto-repeat while the function key is held.
+            return true
+        }
         
         return when (keyEvent.key) {
-            Key.F1 -> { selectedCharacterIndex = 0; true }
-            Key.F2 -> { selectedCharacterIndex = 1; true }
-            Key.F3 -> { selectedCharacterIndex = 2; true }
-            Key.F4 -> { selectedCharacterIndex = 3; true }
-            Key.F5 -> { selectedCharacterIndex = 4; true }
+            Key.F1 -> {
+                if (!previousPressedKeys.containsAnyFunctionKey()) {
+                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
+                }
+                selectedCharacterIndex = 0
+                true
+            }
+            Key.F2 -> {
+                if (!previousPressedKeys.containsAnyFunctionKey()) {
+                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
+                }
+                selectedCharacterIndex = 1
+                true
+            }
+            Key.F3 -> {
+                if (!previousPressedKeys.containsAnyFunctionKey()) {
+                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
+                }
+                selectedCharacterIndex = 2
+                true
+            }
+            Key.F4 -> {
+                if (!previousPressedKeys.containsAnyFunctionKey()) {
+                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
+                }
+                selectedCharacterIndex = 3
+                true
+            }
+            Key.F5 -> {
+                if (!previousPressedKeys.containsAnyFunctionKey()) {
+                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
+                }
+                selectedCharacterIndex = 4
+                true
+            }
             Key.Enter -> {
+                val faceCharacterIndex = when {
+                    pressedKeys.contains(Key.F1) -> 0
+                    pressedKeys.contains(Key.F2) -> 1
+                    pressedKeys.contains(Key.F3) -> 2
+                    pressedKeys.contains(Key.F4) -> 3
+                    pressedKeys.contains(Key.F5) -> 4
+                    else -> null
+                }
+                if (faceCharacterIndex != null && faceCharacterIndex < characters.size) {
+                    val faceCharacterName = characters[faceCharacterIndex]
+                    val faceToApply = findLatestFaceByCharacterName(faceCharacterName)
+                    executeCommand(
+                        AddItemCommand(
+                            this,
+                            ScenarioItem.CharaFace(
+                                characterName = faceCharacterName,
+                                face = faceToApply
+                            )
+                        )
+                    )
+                    selectedCharacterIndex = findLatestCharacterBoxIndex()
+                    return true
+                }
+
                 val isShiftPressed = keyEvent.isShiftPressed
                 val isCtrlPressed = keyEvent.isCtrlPressed
                 
@@ -116,23 +195,7 @@ class AppState {
                 val charName = if (selectedCharacterIndex > 0) characters[selectedCharacterIndex] else null
                 
                 if (currentInput.isNotEmpty() || endTag != "[r]\n") {
-                    // 追加する前に、直前の同じキャラクターのメッセージの表情を引き継ぐ（groupBreakにかかわらず）
-                    var faceToInherit = "通常"
-                    for (i in scenarioItems.indices.reversed()) {
-                        val item = scenarioItems[i]
-                        if (item is ScenarioItem.TalkBlock) {
-                            if (item.characterName == charName) {
-                                // 途中で別のグループに分かれていても、直近の同じキャラクターの発言から表情を引き継ぐ
-                                faceToInherit = item.characterFace
-                                break
-                            } else {
-                                break // キャラクターが変わったら探索終了
-                            }
-                        } else {
-                            break // 他の種類のアイテム（イベントなど）があったら探索終了
-                        }
-                    }
-
+                    val faceToInherit = findLatestFaceByCharacterName(charName)
                     val newItem = ScenarioItem.TalkBlock(charName, currentInput, endTag, characterFace = faceToInherit, groupBreak = groupBreak)
                     executeCommand(AddItemCommand(this, newItem))  // Command経由で追加
                     currentInput = ""
@@ -212,6 +275,15 @@ class AppState {
         executeCommand(UpdateCharacterGroupFaceCommand(this, characterName, firstItemId, newFace))
     }
 
+    fun updateCharaFace(id: String, newFace: String) {
+        val index = scenarioItems.indexOfFirst { it.id == id }
+        if (index == -1) return
+        val item = scenarioItems[index]
+        if (item is ScenarioItem.CharaFace) {
+            scenarioItems[index] = item.copy(face = newFace)
+        }
+    }
+
     fun undo(){
         if (undoStack.isNotEmpty()) {
             val command = undoStack.removeLast()
@@ -247,6 +319,49 @@ class AppState {
         val file = exportScenario(scenarioItems, fileName)
         exportMessage = "Exported to ${file.name}"
     }
+
+    private fun findLatestFaceByCharacterName(characterName: String?): String {
+        if (characterName == null) {
+            return characterFaceOptions.first()
+        }
+
+        for (i in scenarioItems.indices.reversed()) {
+            when (val item = scenarioItems[i]) {
+                is ScenarioItem.TalkBlock -> {
+                    if (item.characterName == characterName) {
+                        return item.characterFace
+                    }
+                    break
+                }
+                is ScenarioItem.CharaFace -> {
+                    if (item.characterName == characterName) {
+                        return item.face
+                    }
+                    break
+                }
+                else -> break
+            }
+        }
+        return characterFaceOptions.first()
+    }
+
+    private fun findLatestCharacterBoxIndex(): Int {
+        for (i in scenarioItems.indices.reversed()) {
+            val item = scenarioItems[i]
+            if (item is ScenarioItem.TalkBlock) {
+                return characters.indexOf(item.characterName ?: "None").takeIf { it >= 0 } ?: 0
+            }
+        }
+        return 0
+    }
+}
+
+private fun Set<Key>.containsAnyFunctionKey(): Boolean {
+    return contains(Key.F1) || contains(Key.F2) || contains(Key.F3) || contains(Key.F4) || contains(Key.F5)
+}
+
+private fun Key.isFunctionKey(): Boolean {
+    return this == Key.F1 || this == Key.F2 || this == Key.F3 || this == Key.F4 || this == Key.F5
 }
 
 @Composable

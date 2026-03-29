@@ -28,6 +28,7 @@ fun ScenarioList(
     onItemUpdate: (String, String, String) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
     onCharacterGroupFaceChange: (String?, String, String) -> Unit,
+    onCharaFaceChange: (String, String) -> Unit,
     currentModifierKeys: Set<Key>,
     modifier: Modifier = Modifier
 ) {
@@ -45,6 +46,7 @@ fun ScenarioList(
                     onItemUpdate = onItemUpdate, 
                     onCharacterChange = onCharacterChange,
                     onCharacterGroupFaceChange = onCharacterGroupFaceChange,
+                    onCharaFaceChange = onCharaFaceChange,
                     currentModifierKeys = currentModifierKeys
                 )
                 is UiItem.Event -> EventItem(item)
@@ -60,12 +62,13 @@ fun CharacterGroupItem(
     onItemUpdate: (String, String, String) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
     onCharacterGroupFaceChange: (String?, String, String) -> Unit,
+    onCharaFaceChange: (String, String) -> Unit,
     currentModifierKeys: Set<Key>
 ) {
-    val faceOptions = listOf("通常", "笑", "泣")
+    val faceOptions = characterFaceOptions
     var selectedFace by remember(item.characterFace) { mutableStateOf(item.characterFace) }
     var expandedFace by remember { mutableStateOf(false) }
-    
+
     Column(
         modifier = Modifier
             .padding(vertical = 6.dp)
@@ -102,7 +105,11 @@ fun CharacterGroupItem(
                                     else -> -1
                                 }
                                 if (charIndex != -1 && item.boxes.isNotEmpty()) {
-                                    val firstLineId = item.boxes.first().lines.firstOrNull()?.id
+                                    val firstLineId = item.boxes
+                                        .asSequence()
+                                        .flatMap { it.lines.asSequence() }
+                                        .mapNotNull { (it as? DialogueLine.Talk)?.item?.id }
+                                        .firstOrNull()
                                     if (firstLineId != null) {
                                         onCharacterChange(firstLineId, charIndex)
                                     }
@@ -111,7 +118,7 @@ fun CharacterGroupItem(
                         )
                     }
             )
-            
+
             Box(modifier = Modifier.width(120.dp)) {
                 Button(
                     onClick = { expandedFace = true },
@@ -130,8 +137,14 @@ fun CharacterGroupItem(
                             onClick = {
                                 selectedFace = face
                                 expandedFace = false
-                                // 変更：firstItemIdを渡すようにしました
-                                onCharacterGroupFaceChange(item.characterName, face, item.boxes.first().lines.first().id)
+                                val firstTalkLineId = item.boxes
+                                    .asSequence()
+                                    .flatMap { it.lines.asSequence() }
+                                    .mapNotNull { (it as? DialogueLine.Talk)?.item?.id }
+                                    .firstOrNull()
+                                if (firstTalkLineId != null) {
+                                    onCharacterGroupFaceChange(item.characterName, face, firstTalkLineId)
+                                }
                             }
                         )
                     }
@@ -143,7 +156,8 @@ fun CharacterGroupItem(
             if (index > 0) Spacer(modifier = Modifier.height(8.dp))
             DialogueBoxItem(
                 box = box, 
-                onItemUpdate = onItemUpdate
+                onItemUpdate = onItemUpdate,
+                onCharaFaceChange = onCharaFaceChange
             )
         }
     }
@@ -152,9 +166,10 @@ fun CharacterGroupItem(
 @Composable
 fun DialogueBoxItem(
     box: DialogueBox,
-    onItemUpdate: (String, String, String) -> Unit
+    onItemUpdate: (String, String, String) -> Unit,
+    onCharaFaceChange: (String, String) -> Unit
 ) {
-    val faceOptions = listOf("通常", "笑", "泣")
+    val faceOptions = characterFaceOptions
 
     Column(
         modifier = Modifier
@@ -163,94 +178,131 @@ fun DialogueBoxItem(
             .border(1.dp, Color.LightGray, shape = MaterialTheme.shapes.small)
             .padding(8.dp)
     ) {
-        box.lines.forEach { line ->
-            var isEditing by remember(line.id, line.text, line.endTag) { mutableStateOf(false) }
-            var editText by remember(line.id, line.text) { mutableStateOf(line.text) }
-            var editTag by remember(line.id, line.endTag) { mutableStateOf(line.endTag.trim()) }
-            var selectedFace by remember(line.id, line.characterFace) { mutableStateOf(line.characterFace) }
-            var expandedFace by remember { mutableStateOf(false) }
+        box.lines.forEach { dialogueLine ->
+            when (dialogueLine) {
+                is DialogueLine.Talk -> {
+                    val line = dialogueLine.item
+                    var isEditing by remember(line.id, line.text, line.endTag) { mutableStateOf(false) }
+                    var editText by remember(line.id, line.text) { mutableStateOf(line.text) }
+                    var editTag by remember(line.id, line.endTag) { mutableStateOf(line.endTag.trim()) }
+                    val focusRequester = remember { FocusRequester() }
 
-            val symbol = when (val trimmedTag = line.endTag.trim()) {
-                "[r]" -> "↓"
-                "[l][r]" -> "▼"
-                "[p]" -> "▶"
-                "[l][cm]" -> "↓ (Clear)"
-                else -> trimmedTag
-            }
-
-            val focusRequester = remember { FocusRequester() }
-
-            if (isEditing) {
-                Column(
-                    modifier = Modifier.fillMaxWidth().padding(vertical = 2.dp)
-                ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
-                        OutlinedTextField(
-                            value = editText,
-                            onValueChange = { editText = it },
-                            modifier = Modifier
-                                .weight(1f)
-                                .focusRequester(focusRequester)
-                                .onPreviewKeyEvent { event ->
-                                    when (event.type) {
-                                        KeyEventType.KeyDown -> {
-                                            when (event.key) {
-                                                Key.Enter -> {
-                                                    val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                                                    onItemUpdate(line.id, editText, newTag) // 変更：4つ目の引数(face)を削除
-                                                    isEditing = false
-                                                    true
-                                                }
-                                                Key.Escape -> {
-                                                    editText = line.text
-                                                    editTag = line.endTag.trim()
-                                                    selectedFace = line.characterFace
-                                                    isEditing = false
-                                                    true
-                                                }
-                                                else -> false
-                                            }
-                                        }
-                                        else -> false
-                                    }
-                                },
-                            singleLine = true
-                        )
-                        OutlinedTextField(
-                            value = editTag,
-                            onValueChange = { editTag = it },
-                            modifier = Modifier.width(100.dp),
-                            singleLine = true,
-                            label = { Text("Tag") }
-                        )
-                        Button(
-                            onClick = {
-                                val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                                onItemUpdate(line.id, editText, newTag) // 変更：4つ目の引数(face)を削除
-                                isEditing = false
-                            }
-                        ) {
-                            Text("Save")
-                        }
+                    val symbol = when (val trimmedTag = line.endTag.trim()) {
+                        "[r]" -> "↓"
+                        "[l][r]" -> "▼"
+                        "[p]" -> "▶"
+                        "[l][cm]" -> "↓ (Clear)"
+                        else -> trimmedTag
                     }
 
-                    Spacer(modifier = Modifier.height(4.dp))
+                    if (isEditing) {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp),
+                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            OutlinedTextField(
+                                value = editText,
+                                onValueChange = { editText = it },
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .focusRequester(focusRequester)
+                                    .onPreviewKeyEvent { event ->
+                                        when (event.type) {
+                                            KeyEventType.KeyDown -> {
+                                                when (event.key) {
+                                                    Key.Enter -> {
+                                                        val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                                                        onItemUpdate(line.id, editText, newTag)
+                                                        isEditing = false
+                                                        true
+                                                    }
+                                                    Key.Escape -> {
+                                                        editText = line.text
+                                                        editTag = line.endTag.trim()
+                                                        isEditing = false
+                                                        true
+                                                    }
+                                                    else -> false
+                                                }
+                                            }
+                                            else -> false
+                                        }
+                                    },
+                                singleLine = true
+                            )
+                            OutlinedTextField(
+                                value = editTag,
+                                onValueChange = { editTag = it },
+                                modifier = Modifier.width(100.dp),
+                                singleLine = true,
+                                label = { Text("Tag") }
+                            )
+                            Button(
+                                onClick = {
+                                    val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                                    onItemUpdate(line.id, editText, newTag)
+                                    isEditing = false
+                                }
+                            ) {
+                                Text("Save")
+                            }
+                        }
+
+                        LaunchedEffect(Unit) {
+                            focusRequester.requestFocus()
+                        }
+                    } else {
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(vertical = 2.dp)
+                                .clickable {
+                                    isEditing = true
+                                },
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text(
+                                text = line.text,
+                                modifier = Modifier.weight(1f)
+                            )
+                            if (symbol.isNotEmpty()) {
+                                Text(
+                                    text = symbol,
+                                    color = MaterialTheme.colorScheme.secondary,
+                                    fontWeight = FontWeight.Bold,
+                                    modifier = Modifier.padding(start = 8.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                is DialogueLine.Face -> {
+                    val faceItem = dialogueLine.item
+                    var selectedFace by remember(faceItem.id, faceItem.face) { mutableStateOf(faceItem.face) }
+                    var expandedFace by remember(faceItem.id) { mutableStateOf(false) }
 
                     Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(vertical = 2.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Box(modifier = Modifier.width(150.dp)) {
+                        Text(
+                            text = "${faceItem.characterName}: 表情",
+                            color = MaterialTheme.colorScheme.tertiary
+                        )
+                        Box(modifier = Modifier.width(120.dp)) {
                             Button(
                                 onClick = { expandedFace = true },
                                 modifier = Modifier.fillMaxWidth()
                             ) {
-                                Text(selectedFace, modifier = Modifier.weight(1f))
-                                Text("▼")
+                                Text(selectedFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                                Text("▼", fontSize = 12.sp)
                             }
                             DropdownMenu(
                                 expanded = expandedFace,
@@ -262,40 +314,12 @@ fun DialogueBoxItem(
                                         onClick = {
                                             selectedFace = face
                                             expandedFace = false
+                                            onCharaFaceChange(faceItem.id, face)
                                         }
                                     )
                                 }
                             }
                         }
-                    }
-                }
-
-                LaunchedEffect(Unit) {
-                    focusRequester.requestFocus()
-                }
-            } else {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 2.dp)
-                        .clickable {
-                            isEditing = true
-                        },
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Column(modifier = Modifier.weight(1f)) {
-                        Text(
-                            text = line.text
-                        )
-                    }
-                    if (symbol.isNotEmpty()) {
-                        Text(
-                            text = symbol,
-                            color = MaterialTheme.colorScheme.secondary,
-                            fontWeight = FontWeight.Bold,
-                            modifier = Modifier.padding(start = 8.dp)
-                        )
                     }
                 }
             }

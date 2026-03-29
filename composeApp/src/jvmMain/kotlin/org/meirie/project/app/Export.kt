@@ -73,6 +73,13 @@ fun exportScenario(items: List<ScenarioItem>, fileName: String = "output"): File
                 previousItemWasGroupBreak = false
                 startNewBoxNext = true
             }
+
+            is ScenarioItem.CharaFace -> {
+                stringBuilder.append("[${item.characterName} ${item.face}]\n")
+                previousCharacterName = null
+                previousItemWasGroupBreak = false
+                startNewBoxNext = true
+            }
         }
     }
 

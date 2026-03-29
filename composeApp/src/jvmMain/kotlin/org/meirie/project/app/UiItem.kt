@@ -17,5 +17,15 @@ sealed class UiItem {
 }
 
 data class DialogueBox(
-    val lines: List<ScenarioItem.TalkBlock>
+    val lines: List<DialogueLine>
 )
+
+sealed class DialogueLine {
+    data class Talk(
+        val item: ScenarioItem.TalkBlock
+    ) : DialogueLine()
+
+    data class Face(
+        val item: ScenarioItem.CharaFace
+    ) : DialogueLine()
+}
