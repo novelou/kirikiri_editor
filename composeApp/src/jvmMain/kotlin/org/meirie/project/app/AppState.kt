@@ -5,6 +5,7 @@ import androidx.compose.ui.input.key.*
 import org.meirie.project.app.command.AddItemCommand
 import org.meirie.project.app.command.ChangeCharacterCommand
 import org.meirie.project.app.command.Command
+import org.meirie.project.app.command.UpdateCharaFaceCommand
 import org.meirie.project.app.command.UpdateCharacterGroupFaceCommand
 import org.meirie.project.app.command.UpdateItemCommand
 
@@ -17,7 +18,6 @@ class AppState {
     private val redoStack = mutableListOf<Command>()
     var currentInput by mutableStateOf("")
     var selectedCharacterIndex by mutableStateOf(0)
-    private var selectedCharacterIndexBeforeFunctionKeyPress: Int? by mutableStateOf(null)
     var pressedKeys by mutableStateOf(setOf<Key>())
     var exportFileName by mutableStateOf("output")
     var exportMessage by mutableStateOf("")
@@ -107,9 +107,6 @@ class AppState {
             pressedKeys = pressedKeys + keyEvent.key
         } else if (keyEvent.type == KeyEventType.KeyUp) {
             pressedKeys = pressedKeys - keyEvent.key
-            if (!pressedKeys.containsAnyFunctionKey()) {
-                selectedCharacterIndexBeforeFunctionKeyPress = null
-            }
         }
         
         if (keyEvent.type != KeyEventType.KeyDown) return false
@@ -120,39 +117,8 @@ class AppState {
         }
         
         return when (keyEvent.key) {
-            Key.F1 -> {
-                if (!previousPressedKeys.containsAnyFunctionKey()) {
-                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
-                }
-                selectedCharacterIndex = 0
-                true
-            }
-            Key.F2 -> {
-                if (!previousPressedKeys.containsAnyFunctionKey()) {
-                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
-                }
-                selectedCharacterIndex = 1
-                true
-            }
-            Key.F3 -> {
-                if (!previousPressedKeys.containsAnyFunctionKey()) {
-                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
-                }
-                selectedCharacterIndex = 2
-                true
-            }
-            Key.F4 -> {
-                if (!previousPressedKeys.containsAnyFunctionKey()) {
-                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
-                }
-                selectedCharacterIndex = 3
-                true
-            }
-            Key.F5 -> {
-                if (!previousPressedKeys.containsAnyFunctionKey()) {
-                    selectedCharacterIndexBeforeFunctionKeyPress = selectedCharacterIndex
-                }
-                selectedCharacterIndex = 4
+            Key.F1, Key.F2, Key.F3, Key.F4, Key.F5 -> {
+                selectedCharacterIndex = keyEvent.key.toCharacterIndex()
                 true
             }
             Key.Enter -> {
@@ -280,7 +246,8 @@ class AppState {
         if (index == -1) return
         val item = scenarioItems[index]
         if (item is ScenarioItem.CharaFace) {
-            scenarioItems[index] = item.copy(face = newFace)
+            if (item.face == newFace) return
+            executeCommand(UpdateCharaFaceCommand(this, id, item.face, newFace))
         }
     }
 
@@ -362,6 +329,17 @@ private fun Set<Key>.containsAnyFunctionKey(): Boolean {
 
 private fun Key.isFunctionKey(): Boolean {
     return this == Key.F1 || this == Key.F2 || this == Key.F3 || this == Key.F4 || this == Key.F5
+}
+
+private fun Key.toCharacterIndex(): Int {
+    return when (this) {
+        Key.F1 -> 0
+        Key.F2 -> 1
+        Key.F3 -> 2
+        Key.F4 -> 3
+        Key.F5 -> 4
+        else -> 0
+    }
 }
 
 @Composable

@@ -66,8 +66,13 @@ fun CharacterGroupItem(
     currentModifierKeys: Set<Key>
 ) {
     val faceOptions = characterFaceOptions
-    var selectedFace by remember(item.characterFace) { mutableStateOf(item.characterFace) }
     var expandedFace by remember { mutableStateOf(false) }
+    val firstTalkLineId = item.boxes
+        .asSequence()
+        .flatMap { it.lines.asSequence() }
+        .mapNotNull { (it as? DialogueLine.Talk)?.item?.id }
+        .firstOrNull()
+    val canChangeGroupFace = firstTalkLineId != null
 
     Column(
         modifier = Modifier
@@ -121,30 +126,23 @@ fun CharacterGroupItem(
 
             Box(modifier = Modifier.width(120.dp)) {
                 Button(
-                    onClick = { expandedFace = true },
+                    onClick = { if (canChangeGroupFace) expandedFace = true },
+                    enabled = canChangeGroupFace,
                     modifier = Modifier.fillMaxWidth()
                 ) {
-                    Text(selectedFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
+                    Text(item.characterFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
                     Text("▼", fontSize = 12.sp)
                 }
                 DropdownMenu(
-                    expanded = expandedFace,
+                    expanded = expandedFace && canChangeGroupFace,
                     onDismissRequest = { expandedFace = false }
                 ) {
                     faceOptions.forEach { face ->
                         DropdownMenuItem(
                             text = { Text(face) },
                             onClick = {
-                                selectedFace = face
                                 expandedFace = false
-                                val firstTalkLineId = item.boxes
-                                    .asSequence()
-                                    .flatMap { it.lines.asSequence() }
-                                    .mapNotNull { (it as? DialogueLine.Talk)?.item?.id }
-                                    .firstOrNull()
-                                if (firstTalkLineId != null) {
-                                    onCharacterGroupFaceChange(item.characterName, face, firstTalkLineId)
-                                }
+                                onCharacterGroupFaceChange(item.characterName, face, firstTalkLineId ?: return@DropdownMenuItem)
                             }
                         )
                     }
