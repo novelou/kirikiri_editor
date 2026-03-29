@@ -1,27 +1,46 @@
-This is a Kotlin Multiplatform project targeting Desktop (JVM).
+﻿# kirikiri_editor
 
-* [/composeApp](./composeApp/src) is for code that will be shared across your Compose Multiplatform applications.
-  It contains several subfolders:
-  - [commonMain](./composeApp/src/commonMain/kotlin) is for code that’s common for all targets.
-  - Other folders are for Kotlin code that will be compiled for only the platform indicated in the folder name.
-    For example, if you want to use Apple’s CoreCrypto for the iOS part of your Kotlin app,
-    the [iosMain](./composeApp/src/iosMain/kotlin) folder would be the right place for such calls.
-    Similarly, if you want to edit the Desktop (JVM) specific part, the [jvmMain](./composeApp/src/jvmMain/kotlin)
-    folder is the appropriate location.
+Kirikiri形式（`.ks`）のシナリオを、会話ブロック単位で編集・出力するデスクトップエディタです。  
+Compose Multiplatform (JVM) で動作します。
 
-### Build and Run Desktop (JVM) Application
+## 主な機能
+- 会話 (`TalkBlock`) の追加・編集
+- 話者切替（F1〜F5）
+- 表情変更
+  - キャラクターグループ単位の表情変更
+  - インライン `CharaFace` ブロックの追加・編集
+- キャライベント (`CharaEvent`) / コマンド (`CommandBlock`) の表示
+- Undo / Redo
+- `.ks` ファイル出力（BOM付き UTF-8）
 
-To build and run the development version of the desktop app, use the run configuration from the run widget
-in your IDE’s toolbar or run it directly from the terminal:
-- on macOS/Linux
-  ```shell
-  ./gradlew :composeApp:run
-  ```
-- on Windows
-  ```shell
-  .\gradlew.bat :composeApp:run
-  ```
+## 動作環境
+- JDK 17+ 推奨
+- Windows / macOS / Linux（JVM 実行環境）
 
----
+## 起動方法
+### Windows
+```powershell
+.\gradlew.bat :composeApp:run
+```
 
-Learn more about [Kotlin Multiplatform](https://www.jetbrains.com/help/kotlin-multiplatform-dev/get-started.html)…
+### macOS / Linux
+```bash
+./gradlew :composeApp:run
+```
+
+## 操作方法（基本）
+- `F1`〜`F5`: 話者選択
+- `Enter`: 行追加（`[r]`）
+- `Shift + Enter`: 改行タグ付き追加（`[l][r]`）
+- `Ctrl + Enter`: ページ送りタグ付き追加（`[p]`）
+- `Ctrl + Shift + Enter`: ボックス分割タグ付き追加（`[l][cm]`）
+- `F1`〜`F5` を押しながら `Enter`: `CharaFace` 追加
+
+## 出力
+- 画面右下の `保存` ボタンで `./scenarios` に出力されます。
+- 同名ファイルがある場合は連番（`*_0.ks`, `*_1.ks`, ...）で保存されます。
+
+## 開発者向けドキュメント
+内部構造・クラス図・関数仕様は以下を参照してください。
+
+- [README.dev.md](README.dev.md)
