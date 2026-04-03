@@ -27,6 +27,7 @@ fun exportScenario(items: List<ScenarioItem>, fileName: String = "output"): File
     var previousCharacterName: String? = null
     var startNewBoxNext = false
     var previousItemWasGroupBreak = false
+    var currentFontSizePx = 12
 
     for (item in items) {
         when (item) {
@@ -41,10 +42,14 @@ fun exportScenario(items: List<ScenarioItem>, fileName: String = "output"): File
                     stringBuilder.append("[${item.characterName} ${item.characterFace}]\n")
                 }
 
+                val oldFontSizePx = currentFontSizePx
+                stringBuilder.append("[fontsize=${item.fontSizePx}px]\n")
                 if (item.text.isNotEmpty()) {
                     stringBuilder.append(item.text).append("\n")
                 }
                 stringBuilder.append(item.endTag)
+                stringBuilder.append("[fontsize=${oldFontSizePx}px]\n")
+                currentFontSizePx = oldFontSizePx
 
                 previousCharacterName = item.characterName
                 previousItemWasGroupBreak = item.groupBreak

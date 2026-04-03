@@ -72,8 +72,8 @@ fun App() {
                 ScenarioList(
                     uiItems = appState.uiItems,
                     listState = listState,
-                    onItemUpdate = { id, text, endTag ->
-                        appState.updateItem(id, text, endTag)
+                    onItemUpdate = { id, text, endTag, fontSizePx ->
+                        appState.updateItem(id, text, endTag, fontSizePx)
                     },
                     onCharacterChange = { id, charIndex ->
                         appState.changeCharacterViaCommand(id, charIndex)

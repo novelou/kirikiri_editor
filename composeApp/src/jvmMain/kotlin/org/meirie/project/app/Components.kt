@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -21,11 +22,13 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
+private val fontSizePresets = listOf(10, 12, 14, 16, 18, 20, 24, 28, 32)
+
 @Composable
 fun ScenarioList(
     uiItems: List<UiItem>, 
     listState: LazyListState, 
-    onItemUpdate: (String, String, String) -> Unit,
+    onItemUpdate: (String, String, String, Int) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
     onCharacterGroupFaceChange: (String?, String, String) -> Unit,
     onCharaFaceChange: (String, String) -> Unit,
@@ -59,7 +62,7 @@ fun ScenarioList(
 @Composable
 fun CharacterGroupItem(
     item: UiItem.CharacterGroup,
-    onItemUpdate: (String, String, String) -> Unit,
+    onItemUpdate: (String, String, String, Int) -> Unit,
     onCharacterChange: (String, Int) -> Unit,
     onCharacterGroupFaceChange: (String?, String, String) -> Unit,
     onCharaFaceChange: (String, String) -> Unit,
@@ -164,7 +167,7 @@ fun CharacterGroupItem(
 @Composable
 fun DialogueBoxItem(
     box: DialogueBox,
-    onItemUpdate: (String, String, String) -> Unit,
+    onItemUpdate: (String, String, String, Int) -> Unit,
     onCharaFaceChange: (String, String) -> Unit
 ) {
     val faceOptions = characterFaceOptions
@@ -180,9 +183,11 @@ fun DialogueBoxItem(
             when (dialogueLine) {
                 is DialogueLine.Talk -> {
                     val line = dialogueLine.item
-                    var isEditing by remember(line.id, line.text, line.endTag) { mutableStateOf(false) }
+                    var isEditing by remember(line.id, line.text, line.endTag, line.fontSizePx) { mutableStateOf(false) }
                     var editText by remember(line.id, line.text) { mutableStateOf(line.text) }
                     var editTag by remember(line.id, line.endTag) { mutableStateOf(line.endTag.trim()) }
+                    var editFontSizeText by remember(line.id, line.fontSizePx) { mutableStateOf(line.fontSizePx.toString()) }
+                    var expandedFontSizeMenu by remember(line.id) { mutableStateOf(false) }
                     val focusRequester = remember { FocusRequester() }
 
                     val symbol = when (val trimmedTag = line.endTag.trim()) {
@@ -194,31 +199,40 @@ fun DialogueBoxItem(
                     }
 
                     if (isEditing) {
+                        fun resolveFontSizePx(): Int {
+                            return editFontSizeText.trim().toIntOrNull()?.takeIf { it > 0 } ?: 12
+                        }
+                        fun saveEdit() {
+                            val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
+                            onItemUpdate(line.id, editText, newTag, resolveFontSizePx())
+                            isEditing = false
+                        }
+
                         Row(
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .padding(vertical = 2.dp),
-                            horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             OutlinedTextField(
                                 value = editText,
                                 onValueChange = { editText = it },
                                 modifier = Modifier
-                                    .weight(1f)
+                                    .weight(4f)
                                     .focusRequester(focusRequester)
                                     .onPreviewKeyEvent { event ->
                                         when (event.type) {
                                             KeyEventType.KeyDown -> {
                                                 when (event.key) {
                                                     Key.Enter -> {
-                                                        val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                                                        onItemUpdate(line.id, editText, newTag)
-                                                        isEditing = false
+                                                        saveEdit()
                                                         true
                                                     }
                                                     Key.Escape -> {
                                                         editText = line.text
                                                         editTag = line.endTag.trim()
+                                                        editFontSizeText = line.fontSizePx.toString()
                                                         isEditing = false
                                                         true
                                                     }
@@ -233,18 +247,51 @@ fun DialogueBoxItem(
                             OutlinedTextField(
                                 value = editTag,
                                 onValueChange = { editTag = it },
-                                modifier = Modifier.width(100.dp),
+                                modifier = Modifier.weight(1f),
                                 singleLine = true,
                                 label = { Text("Tag") }
                             )
-                            Button(
-                                onClick = {
-                                    val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
-                                    onItemUpdate(line.id, editText, newTag)
-                                    isEditing = false
+                            Box(modifier = Modifier.weight(1f)) {
+                                OutlinedTextField(
+                                    value = editFontSizeText,
+                                    onValueChange = { input ->
+                                        editFontSizeText = input.filter { it.isDigit() }
+                                    },
+                                    modifier = Modifier.fillMaxWidth(),
+                                    singleLine = true,
+                                    label = { Text("px") },
+                                    suffix = { Text("px") },
+                                    trailingIcon = {
+                                        Text(
+                                            text = "▼",
+                                            modifier = Modifier.clickable { expandedFontSizeMenu = true }
+                                        )
+                                    }
+                                )
+                                DropdownMenu(
+                                    expanded = expandedFontSizeMenu,
+                                    onDismissRequest = { expandedFontSizeMenu = false }
+                                ) {
+                                    fontSizePresets.forEach { px ->
+                                        DropdownMenuItem(
+                                            text = { Text("${px}") },
+                                            onClick = {
+                                                editFontSizeText = px.toString()
+                                                expandedFontSizeMenu = false
+                                            }
+                                        )
+                                    }
                                 }
+                            }
+                            OutlinedButton(
+                                onClick = { saveEdit() },
+                                modifier = Modifier
+                                    .width(44.dp)
+                                    .height(54.dp),
+                                contentPadding = PaddingValues(horizontal = 4.dp, vertical = 6.dp),
+                                shape = RoundedCornerShape(4.dp)
                             ) {
-                                Text("Save")
+                                Text("保\n存", lineHeight = 12.sp)
                             }
                         }
 
@@ -265,6 +312,11 @@ fun DialogueBoxItem(
                             Text(
                                 text = line.text,
                                 modifier = Modifier.weight(1f)
+                            )
+                            Text(
+                                text = "${line.fontSizePx}px",
+                                color = MaterialTheme.colorScheme.outline,
+                                modifier = Modifier.padding(start = 8.dp)
                             )
                             if (symbol.isNotEmpty()) {
                                 Text(

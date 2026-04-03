@@ -172,14 +172,26 @@ class AppState {
         }
     }
 
-    fun updateItem(id: String, text: String, endTag: String) {
+    fun updateItem(id: String, text: String, endTag: String, fontSizePx: Int) {
         val index = scenarioItems.indexOfFirst { it.id == id }
         if (index != -1) {
             val item = scenarioItems[index]
             if (item is ScenarioItem.TalkBlock) {
                 val oldText = item.text
                 val oldEndTag = item.endTag
-                executeCommand(UpdateItemCommand(this, id, oldText, oldEndTag, text, endTag))
+                val oldFontSizePx = item.fontSizePx
+                executeCommand(
+                    UpdateItemCommand(
+                        this,
+                        id,
+                        oldText,
+                        oldEndTag,
+                        oldFontSizePx,
+                        text,
+                        endTag,
+                        fontSizePx
+                    )
+                )
             }
         }
     }

@@ -8,8 +8,10 @@ class UpdateItemCommand(
     private val itemId: String,
     private val oldText: String,
     private val oldEndTag: String,
+    private val oldFontSizePx: Int,
     private val newText: String,
-    private val newEndTag: String
+    private val newEndTag: String,
+    private val newFontSizePx: Int
 ) : Command {
     override fun execute() {
         // 直接scenarioItemsを更新（循環参照を避ける）
@@ -17,7 +19,11 @@ class UpdateItemCommand(
         if (index != -1) {
             val item = appState.scenarioItems[index]
             if (item is ScenarioItem.TalkBlock) {
-                appState.scenarioItems[index] = item.copy(text = newText, endTag = newEndTag)
+                appState.scenarioItems[index] = item.copy(
+                    text = newText,
+                    endTag = newEndTag,
+                    fontSizePx = newFontSizePx
+                )
             }
         }
     }
@@ -28,7 +34,11 @@ class UpdateItemCommand(
         if (index != -1) {
             val item = appState.scenarioItems[index]
             if (item is ScenarioItem.TalkBlock) {
-                appState.scenarioItems[index] = item.copy(text = oldText, endTag = oldEndTag)
+                appState.scenarioItems[index] = item.copy(
+                    text = oldText,
+                    endTag = oldEndTag,
+                    fontSizePx = oldFontSizePx
+                )
             }
         }
     }

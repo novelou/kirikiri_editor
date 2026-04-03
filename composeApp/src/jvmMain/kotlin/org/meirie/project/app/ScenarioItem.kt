@@ -1,4 +1,4 @@
-package org.meirie.project.app
+﻿package org.meirie.project.app
 
 sealed class ScenarioItem {
     abstract val id: String
@@ -13,7 +13,8 @@ sealed class ScenarioItem {
         val characterName: String?,
         val text: String,
         val endTag: String,
-        val characterFace: String = "通常",
+        val fontSizePx: Int = 12,
+        val characterFace: String = characterFaceOptions.first(),
         val groupBreak: Boolean = false,
         override val id: String = java.util.UUID.randomUUID().toString()
     ) : ScenarioItem()
