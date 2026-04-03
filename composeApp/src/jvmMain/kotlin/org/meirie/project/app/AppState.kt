@@ -1,4 +1,4 @@
-package org.meirie.project.app
+﻿package org.meirie.project.app
 
 import androidx.compose.runtime.*
 import androidx.compose.ui.input.key.*
@@ -9,8 +9,6 @@ import org.meirie.project.app.command.UpdateCharaFaceCommand
 import org.meirie.project.app.command.UpdateCharacterGroupFaceCommand
 import org.meirie.project.app.command.UpdateItemCommand
 
-val characters = listOf("None", "キャラA", "キャラB", "キャラC", "キャラD")
-val characterFaceOptions = listOf("通常", "笑", "泣")
 
 class AppState {
     val scenarioItems = mutableStateListOf<ScenarioItem>()
@@ -44,7 +42,7 @@ class AppState {
                     .flatMap { it.lines.asSequence() }
                     .mapNotNull { (it as? DialogueLine.Talk)?.item?.characterFace }
                     .firstOrNull()
-                    ?: "通常"
+                    ?: defaultFaceForCharacter(currentCharacterName)
                 result.add(UiItem.CharacterGroup(currentCharacterName, currentBoxes.toList(), characterFace))
                 currentBoxes.clear()
             }
@@ -130,8 +128,8 @@ class AppState {
                     pressedKeys.contains(Key.F5) -> 4
                     else -> null
                 }
-                if (faceCharacterIndex != null && faceCharacterIndex < characters.size) {
-                    val faceCharacterName = characters[faceCharacterIndex]
+                if (faceCharacterIndex != null && faceCharacterIndex < Characters.size) {
+                    val faceCharacterName = Characters[faceCharacterIndex]
                     val faceToApply = findLatestFaceByCharacterName(faceCharacterName)
                     executeCommand(
                         AddItemCommand(
@@ -158,12 +156,12 @@ class AppState {
                 
                 val groupBreak = isCtrlPressed && isShiftPressed
                 
-                val charName = if (selectedCharacterIndex > 0) characters[selectedCharacterIndex] else null
+                val charName = if (selectedCharacterIndex > 0) Characters[selectedCharacterIndex] else null
                 
                 if (currentInput.isNotEmpty() || endTag != "[r]\n") {
                     val faceToInherit = findLatestFaceByCharacterName(charName)
                     val newItem = ScenarioItem.TalkBlock(charName, currentInput, endTag, characterFace = faceToInherit, groupBreak = groupBreak)
-                    executeCommand(AddItemCommand(this, newItem))  // Command経由で追加
+                    executeCommand(AddItemCommand(this, newItem))  // Command邨檎罰縺ｧ霑ｽ蜉
                     currentInput = ""
                 }
                 true
@@ -199,7 +197,7 @@ class AppState {
     fun changeCharacter(id: String, characterIndex: Int) {
         val index = scenarioItems.indexOfFirst { it.id == id }
         if (index != -1) {
-            val charName = if (characterIndex > 0) characters[characterIndex] else null
+            val charName = if (characterIndex > 0) Characters[characterIndex] else null
 
             val clickedItem = scenarioItems[index]
             if (clickedItem is ScenarioItem.TalkBlock) {
@@ -243,7 +241,7 @@ class AppState {
             val clickedItem = scenarioItems[index]
             if (clickedItem is ScenarioItem.TalkBlock) {
                 val oldCharName = clickedItem.characterName
-                val oldCharacterIndex = characters.indexOf(oldCharName ?: "None")  // oldCharNameからインデックスを取得
+                val oldCharacterIndex = Characters.indexOf(oldCharName ?: NoneCharacterName)  // oldCharName縺九ｉ繧､繝ｳ繝・ャ繧ｯ繧ｹ繧貞叙蠕・
                 executeCommand(ChangeCharacterCommand(this, id, oldCharacterIndex, newCharacterIndex))
             }
         }
@@ -301,7 +299,7 @@ class AppState {
 
     private fun findLatestFaceByCharacterName(characterName: String?): String {
         if (characterName == null) {
-            return characterFaceOptions.first()
+            return defaultFaceForCharacter(characterName)
         }
 
         for (i in scenarioItems.indices.reversed()) {
@@ -321,14 +319,14 @@ class AppState {
                 else -> break
             }
         }
-        return characterFaceOptions.first()
+        return defaultFaceForCharacter(characterName)
     }
 
     private fun findLatestCharacterBoxIndex(): Int {
         for (i in scenarioItems.indices.reversed()) {
             val item = scenarioItems[i]
             if (item is ScenarioItem.TalkBlock) {
-                return characters.indexOf(item.characterName ?: "None").takeIf { it >= 0 } ?: 0
+                return Characters.indexOf(item.characterName ?: NoneCharacterName).takeIf { it >= 0 } ?: 0
             }
         }
         return 0
@@ -356,3 +354,4 @@ private fun Key.toCharacterIndex(): Int {
 
 @Composable
 fun rememberAppState() = remember { AppState() }
+

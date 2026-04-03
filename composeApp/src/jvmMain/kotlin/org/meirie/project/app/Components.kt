@@ -22,8 +22,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 
-private val fontSizePresets = listOf(10, 12, 14, 16, 18, 20, 24, 28, 32)
-
 @Composable
 fun ScenarioList(
     uiItems: List<UiItem>, 
@@ -68,7 +66,7 @@ fun CharacterGroupItem(
     onCharaFaceChange: (String, String) -> Unit,
     currentModifierKeys: Set<Key>
 ) {
-    val faceOptions = characterFaceOptions
+    val faceOptions = faceOptionsForCharacter(item.characterName)
     var expandedFace by remember { mutableStateOf(false) }
     val firstTalkLineId = item.boxes
         .asSequence()
@@ -170,7 +168,6 @@ fun DialogueBoxItem(
     onItemUpdate: (String, String, String, Int) -> Unit,
     onCharaFaceChange: (String, String) -> Unit
 ) {
-    val faceOptions = characterFaceOptions
 
     Column(
         modifier = Modifier
@@ -200,7 +197,7 @@ fun DialogueBoxItem(
 
                     if (isEditing) {
                         fun resolveFontSizePx(): Int {
-                            return editFontSizeText.trim().toIntOrNull()?.takeIf { it > 0 } ?: 12
+                            return editFontSizeText.trim().toIntOrNull()?.takeIf { it > 0 } ?: DefaultFontSize
                         }
                         fun saveEdit() {
                             val newTag = if (editTag.endsWith("\n")) editTag else "$editTag\n"
@@ -272,7 +269,7 @@ fun DialogueBoxItem(
                                     expanded = expandedFontSizeMenu,
                                     onDismissRequest = { expandedFontSizeMenu = false }
                                 ) {
-                                    fontSizePresets.forEach { px ->
+                                        FontSizePresets.forEach { px ->
                                         DropdownMenuItem(
                                             text = { Text("${px}") },
                                             onClick = {
@@ -332,6 +329,7 @@ fun DialogueBoxItem(
 
                 is DialogueLine.Face -> {
                     val faceItem = dialogueLine.item
+                    val faceOptions = faceOptionsForCharacter(faceItem.characterName)
                     var selectedFace by remember(faceItem.id, faceItem.face) { mutableStateOf(faceItem.face) }
                     var expandedFace by remember(faceItem.id) { mutableStateOf(false) }
 
@@ -399,7 +397,7 @@ fun CommandItem(item: UiItem.Command) {
 fun CharacterSelector(selectedIndex: Int) {
     Row(verticalAlignment = Alignment.CenterVertically) {
         Text("話者 (F1-F5で切替): ", fontWeight = FontWeight.Bold)
-        characters.forEachIndexed { index, name ->
+        Characters.forEachIndexed { index, name ->
             val isSelected = index == selectedIndex
             Text(
                 text = "F${index + 1}: $name",

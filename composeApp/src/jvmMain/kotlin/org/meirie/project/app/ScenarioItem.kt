@@ -13,8 +13,8 @@ sealed class ScenarioItem {
         val characterName: String?,
         val text: String,
         val endTag: String,
-        val fontSizePx: Int = 12,
-        val characterFace: String = characterFaceOptions.first(),
+        val fontSizePx: Int = DefaultFontSize,
+        val characterFace: String = defaultFaceForCharacter(characterName),
         val groupBreak: Boolean = false,
         override val id: String = java.util.UUID.randomUUID().toString()
     ) : ScenarioItem()

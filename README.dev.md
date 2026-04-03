@@ -18,6 +18,8 @@
   - 編集状態、キーボード処理、Command実行、UI再構成
 - `.../ScenarioItem.kt`
   - 永続データモデル（ドメイン）
+- `.../EditorConfig.kt`
+  - 人間が変更する定数・選択肢定義（話者、表情候補、フォントサイズ候補）
 - `.../UiItem.kt`
   - 表示向けデータモデル
 - `.../Components.kt`
@@ -40,6 +42,7 @@ classDiagram
       +String? characterName
       +String text
       +String endTag
+      +Int fontSizePx
       +String characterFace
       +Boolean groupBreak
       +String id
@@ -142,6 +145,7 @@ flowchart LR
 
 ## `ScenarioItem`
 - `TalkBlock`: 本文、終了タグ、話者、表情、グループ分割情報を保持
+  - `fontSizePx` を保持（デフォルト `12`）
 - `CharaFace`: 表情変更命令をインラインで保持
 - `CharaEvent`: 表示/非表示などのイベント
 - `CommandBlock`: 生コマンド行
@@ -181,7 +185,7 @@ flowchart LR
 - 全件再構築前提（編集時の周辺影響反映を優先）
 
 ## `updateItem`
-- `TalkBlock` の `text` / `endTag` を `UpdateItemCommand` 経由で更新
+- `TalkBlock` の `text` / `endTag` / `fontSizePx` を `UpdateItemCommand` 経由で更新
 
 ## `changeCharacter` / `changeCharacterViaCommand`
 - クリック対象を起点に、同一話者かつ `groupBreak=false` の連続範囲を更新
@@ -210,7 +214,7 @@ flowchart LR
 - `AddItemCommand`
   - append / remove
 - `UpdateItemCommand`
-  - `TalkBlock` の本文・タグ差し替え
+  - `TalkBlock` の本文・タグ・フォントサイズ差し替え
 - `ChangeCharacterCommand`
   - `changeCharacter` を execute/undo 双方で呼ぶ
 - `UpdateCharacterGroupFaceCommand`
@@ -228,13 +232,18 @@ flowchart LR
 ## `CharacterGroupItem`
 - 左: 話者表示（Fキー+クリックでグループ話者変更）
 - 右: グループ表情プルダウン
+  - 表情候補は話者ごとの定義を使用
   - `TalkBlock` を含むグループでのみ有効
 
 ## `DialogueBoxItem`
 - `DialogueLine.Talk`
-  - クリックでインライン編集（text/tag）
+  - クリックでインライン編集（text/tag/fontSize）
+  - fontSize は Word 風の「テキスト入力 + プルダウン」UI
+  - 編集レイアウトは1行（Text / Tag / px / 保存）
+  - 保存ボタンは右端の小さい縦書き「保存」
 - `DialogueLine.Face`
   - 右側プルダウンで `CharaFace.face` を更新
+  - 表情候補は `faceItem.characterName` ごとの定義を使用
 
 ## `CharacterSelector`
 - 現在話者（F1〜F5）の可視化
@@ -250,7 +259,9 @@ flowchart LR
 - エンコーディング: UTF-8 with BOM
 - `TalkBlock`:
   - 新規ボックス開始時に `[character face]`
+  - `[fontsize=${fontSizePx}px]` で開始
   - text + endTag を連結
+  - 常に `[fontsize=12px]`（`DefaultFontSize`）で戻す
 - `CharaEvent`:
   - コメント行として出力
 - `CommandBlock`:
@@ -282,3 +293,15 @@ flowchart LR
 - `CharaFace` の face 変更が Undo/Redo で往復できるか
 - グループface変更ボタンが `TalkBlock` なし時に無効になっているか
 - Export の `[character face]` 出力が意図どおりか
+
+---
+
+## 13. 定数関係
+- `DefaultFontSize` (`EditorConfig.kt`): フォントサイズの基準値。`TalkBlock.fontSizePx` のデフォルト、編集UIの不正入力フォールバック、Exportのフォント戻し値に使用。
+- `NoneCharacterName` (`EditorConfig.kt`): 「話者なし」を表す表示名。話者選択とインデックス復元で使用。
+- `DefaultFace` (`EditorConfig.kt`): 表情の基準値。話者未指定時や未定義話者時のフォールバックに使用。
+- `Characters` (`EditorConfig.kt`): 話者選択の候補一覧。`selectedCharacterIndex` や `F1-F5` ショートカットの対応先。
+- `FontSizePresets` (`EditorConfig.kt`): fontSizeプルダウンに表示するプリセット値一覧。任意入力と併用する候補値。
+- `CharacterFaceOptionsByCharacter` (`EditorConfig.kt`): 話者ごとの表情候補マップ。グループ表情変更と `CharaFace` 編集のプルダウン元データ。
+- `faceOptionsForCharacter(characterName)` (`EditorConfig.kt`): 話者名に対応する表情候補を返す関数。`CharacterFaceOptionsByCharacter` + フォールバックを吸収。
+- `defaultFaceForCharacter(characterName)` (`EditorConfig.kt`): 話者名に対応するデフォルト表情を返す関数。`TalkBlock` 生成・表情継承時の終端フォールバックに使用。
