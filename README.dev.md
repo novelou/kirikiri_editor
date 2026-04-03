@@ -246,7 +246,8 @@ flowchart LR
   - 表情候補は `faceItem.characterName` ごとの定義を使用
 
 ## `CharacterSelector`
-- 現在話者（F1〜F5）の可視化
+- 現在話者（F1〜F12）の可視化
+- `LazyRow` で横スクロール表示し、選択中話者まで自動スクロール
 
 ## `ScenarioInputArea`
 - 下部入力欄
@@ -300,7 +301,9 @@ flowchart LR
 - `DefaultFontSize` (`EditorConfig.kt`): フォントサイズの基準値。`TalkBlock.fontSizePx` のデフォルト、編集UIの不正入力フォールバック、Exportのフォント戻し値に使用。
 - `NoneCharacterName` (`EditorConfig.kt`): 「話者なし」を表す表示名。話者選択とインデックス復元で使用。
 - `DefaultFace` (`EditorConfig.kt`): 表情の基準値。話者未指定時や未定義話者時のフォールバックに使用。
-- `Characters` (`EditorConfig.kt`): 話者選択の候補一覧。`selectedCharacterIndex` や `F1-F5` ショートカットの対応先。
+- `MinCharacterCount` (`EditorConfig.kt`): `Characters` の最小件数制約（`1`）。
+- `MaxCharacterCount` (`EditorConfig.kt`): `Characters` の最大件数制約（`12`）。
+- `Characters` (`EditorConfig.kt`): 話者選択の候補一覧。`selectedCharacterIndex` や `F1-F12` ショートカットの対応先。件数は `1..12` でバリデーション。
 - `FontSizePresets` (`EditorConfig.kt`): fontSizeプルダウンに表示するプリセット値一覧。任意入力と併用する候補値。
 - `CharacterFaceOptionsByCharacter` (`EditorConfig.kt`): 話者ごとの表情候補マップ。グループ表情変更と `CharaFace` 編集のプルダウン元データ。
 - `faceOptionsForCharacter(characterName)` (`EditorConfig.kt`): 話者名に対応する表情候補を返す関数。`CharacterFaceOptionsByCharacter` + フォールバックを吸収。

@@ -115,19 +115,15 @@ class AppState {
         }
         
         return when (keyEvent.key) {
-            Key.F1, Key.F2, Key.F3, Key.F4, Key.F5 -> {
-                selectedCharacterIndex = keyEvent.key.toCharacterIndex()
+            in characterSelectKeys -> {
+                val newIndex = keyEvent.key.toCharacterIndex() ?: return false
+                if (newIndex < Characters.size) {
+                    selectedCharacterIndex = newIndex
+                }
                 true
             }
             Key.Enter -> {
-                val faceCharacterIndex = when {
-                    pressedKeys.contains(Key.F1) -> 0
-                    pressedKeys.contains(Key.F2) -> 1
-                    pressedKeys.contains(Key.F3) -> 2
-                    pressedKeys.contains(Key.F4) -> 3
-                    pressedKeys.contains(Key.F5) -> 4
-                    else -> null
-                }
+                val faceCharacterIndex = pressedKeys.toCharacterIndex()
                 if (faceCharacterIndex != null && faceCharacterIndex < Characters.size) {
                     val faceCharacterName = Characters[faceCharacterIndex]
                     val faceToApply = findLatestFaceByCharacterName(faceCharacterName)
@@ -334,22 +330,30 @@ class AppState {
 }
 
 private fun Set<Key>.containsAnyFunctionKey(): Boolean {
-    return contains(Key.F1) || contains(Key.F2) || contains(Key.F3) || contains(Key.F4) || contains(Key.F5)
+    return any { it in characterSelectKeys }
 }
 
 private fun Key.isFunctionKey(): Boolean {
-    return this == Key.F1 || this == Key.F2 || this == Key.F3 || this == Key.F4 || this == Key.F5
+    return this in characterSelectKeys
 }
 
-private fun Key.toCharacterIndex(): Int {
-    return when (this) {
-        Key.F1 -> 0
-        Key.F2 -> 1
-        Key.F3 -> 2
-        Key.F4 -> 3
-        Key.F5 -> 4
-        else -> 0
+private val characterSelectKeys = listOf(
+    Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6,
+    Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12
+)
+
+private fun Key.toCharacterIndex(): Int? {
+    val index = characterSelectKeys.indexOf(this)
+    return index.takeIf { it >= 0 }
+}
+
+private fun Set<Key>.toCharacterIndex(): Int? {
+    for (key in characterSelectKeys) {
+        if (contains(key)) {
+            return key.toCharacterIndex()
+        }
     }
+    return null
 }
 
 @Composable

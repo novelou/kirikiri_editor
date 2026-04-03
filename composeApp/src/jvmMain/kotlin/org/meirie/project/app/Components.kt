@@ -1,4 +1,4 @@
-package org.meirie.project.app
+﻿package org.meirie.project.app
 
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -6,8 +6,11 @@ import androidx.compose.foundation.clickable
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.LazyListState
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -21,6 +24,20 @@ import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+
+private val characterSelectKeysForUi = listOf(
+    Key.F1, Key.F2, Key.F3, Key.F4, Key.F5, Key.F6,
+    Key.F7, Key.F8, Key.F9, Key.F10, Key.F11, Key.F12
+)
+
+private fun Set<Key>.toCharacterIndex(): Int? {
+    for ((index, key) in characterSelectKeysForUi.withIndex()) {
+        if (contains(key)) {
+            return index
+        }
+    }
+    return null
+}
 
 @Composable
 fun ScenarioList(
@@ -103,14 +120,9 @@ fun CharacterGroupItem(
                         detectTapGestures(
                             onTap = {
                                 val charIndex = when {
-                                    currentModifierKeys.contains(Key.F1) -> 0
-                                    currentModifierKeys.contains(Key.F2) -> 1
-                                    currentModifierKeys.contains(Key.F3) -> 2
-                                    currentModifierKeys.contains(Key.F4) -> 3
-                                    currentModifierKeys.contains(Key.F5) -> 4
-                                    else -> -1
+                                    else -> currentModifierKeys.toCharacterIndex() ?: -1
                                 }
-                                if (charIndex != -1 && item.boxes.isNotEmpty()) {
+                                if (charIndex in 0 until Characters.size && item.boxes.isNotEmpty()) {
                                     val firstLineId = item.boxes
                                         .asSequence()
                                         .flatMap { it.lines.asSequence() }
@@ -132,7 +144,7 @@ fun CharacterGroupItem(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(item.characterFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                    Text("▼", fontSize = 12.sp)
+                    Text("笆ｼ", fontSize = 12.sp)
                 }
                 DropdownMenu(
                     expanded = expandedFace && canChangeGroupFace,
@@ -260,7 +272,7 @@ fun DialogueBoxItem(
                                     suffix = { Text("px") },
                                     trailingIcon = {
                                         Text(
-                                            text = "▼",
+                                            text = "笆ｼ",
                                             modifier = Modifier.clickable { expandedFontSizeMenu = true }
                                         )
                                     }
@@ -350,7 +362,7 @@ fun DialogueBoxItem(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(selectedFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                Text("▼", fontSize = 12.sp)
+                                Text("笆ｼ", fontSize = 12.sp)
                             }
                             DropdownMenu(
                                 expanded = expandedFace,
@@ -395,23 +407,36 @@ fun CommandItem(item: UiItem.Command) {
 
 @Composable
 fun CharacterSelector(selectedIndex: Int) {
-    Row(verticalAlignment = Alignment.CenterVertically) {
-        Text("話者 (F1-F5で切替): ", fontWeight = FontWeight.Bold)
-        Characters.forEachIndexed { index, name ->
-            val isSelected = index == selectedIndex
-            Text(
-                text = "F${index + 1}: $name",
-                modifier = Modifier
-                    .padding(horizontal = 4.dp)
-                    .background(
-                        if (isSelected) MaterialTheme.colorScheme.primaryContainer 
-                        else Color.Transparent,
-                        shape = MaterialTheme.shapes.small
-                    )
-                    .padding(4.dp),
-                fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
-                color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color.Unspecified
-            )
+    val listState = rememberLazyListState()
+
+    LaunchedEffect(selectedIndex) {
+        if (selectedIndex in Characters.indices) {
+            listState.animateScrollToItem(selectedIndex)
+        }
+    }
+
+    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Text("話者 (F1-F12で切替): ", fontWeight = FontWeight.Bold)
+        LazyRow(
+            state = listState,
+            horizontalArrangement = Arrangement.spacedBy(6.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
+            itemsIndexed(Characters) { index, name ->
+                val isSelected = index == selectedIndex
+                Text(
+                    text = "F${index + 1}: $name",
+                    modifier = Modifier
+                        .background(
+                            if (isSelected) MaterialTheme.colorScheme.primaryContainer
+                            else Color.Transparent,
+                            shape = MaterialTheme.shapes.small
+                        )
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Normal,
+                    color = if (isSelected) MaterialTheme.colorScheme.onPrimaryContainer else Color.Unspecified
+                )
+            }
         }
     }
 }
@@ -428,8 +453,10 @@ fun ScenarioInputArea(
         modifier = Modifier
             .fillMaxWidth()
             .onPreviewKeyEvent(onKeyEvent),
-        label = { Text("シナリオテキスト入力（Enter:↓ / Shift+Enter:▼ / Ctrl+Enter:▶ / Ctrl+Shift+Enter: ボックス分割）") },
+        label = { Text("シナリオテキスト入力 (Enter:↓ / Shift+Enter:▼ / Ctrl+Enter:▶ / Ctrl+Shift+Enter: ボックス分割)") },
         singleLine = false,
         maxLines = 5
     )
 }
+
+
