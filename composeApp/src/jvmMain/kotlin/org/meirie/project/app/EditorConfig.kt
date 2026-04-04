@@ -1,6 +1,6 @@
 ﻿package org.meirie.project.app
 
-const val DefaultFontSize = 12
+const val DefaultFontSize = 24
 const val NoneCharacterName = "None"
 const val DefaultFace = "通常"
 const val MinCharacterCount = 1
@@ -16,7 +16,7 @@ val Characters = validateCharacters(
     )
 )
 
-val FontSizePresets = listOf(10, 12, 14, 16, 18, 20, 24, 28, 32)
+val FontSizePresets = listOf(20,24,32,40,48)
 
 val CharacterFaceOptionsByCharacter: Map<String, List<String>> = mapOf(
     "キャラA" to listOf("通常", "笑", "泣"),
