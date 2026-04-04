@@ -144,7 +144,7 @@ fun CharacterGroupItem(
                     modifier = Modifier.fillMaxWidth()
                 ) {
                     Text(item.characterFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                    Text("笆ｼ", fontSize = 12.sp)
+                    Text("▼", fontSize = 12.sp)
                 }
                 DropdownMenu(
                     expanded = expandedFace && canChangeGroupFace,
@@ -272,7 +272,7 @@ fun DialogueBoxItem(
                                     suffix = { Text("px") },
                                     trailingIcon = {
                                         Text(
-                                            text = "笆ｼ",
+                                            text = "▼",
                                             modifier = Modifier.clickable { expandedFontSizeMenu = true }
                                         )
                                     }
@@ -362,7 +362,7 @@ fun DialogueBoxItem(
                                 modifier = Modifier.fillMaxWidth()
                             ) {
                                 Text(selectedFace, modifier = Modifier.weight(1f), fontSize = 12.sp)
-                                Text("笆ｼ", fontSize = 12.sp)
+                                Text("▼", fontSize = 12.sp)
                             }
                             DropdownMenu(
                                 expanded = expandedFace,
@@ -406,7 +406,10 @@ fun CommandItem(item: UiItem.Command) {
 }
 
 @Composable
-fun CharacterSelector(selectedIndex: Int) {
+fun CharacterSelector(
+    selectedIndex: Int,
+    modifier: Modifier = Modifier
+) {
     val listState = rememberLazyListState()
 
     LaunchedEffect(selectedIndex) {
@@ -415,7 +418,10 @@ fun CharacterSelector(selectedIndex: Int) {
         }
     }
 
-    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+    Column(
+        modifier = modifier,
+        verticalArrangement = Arrangement.spacedBy(4.dp)
+    ) {
         Text("話者 (F1-F12で切替): ", fontWeight = FontWeight.Bold)
         LazyRow(
             state = listState,
