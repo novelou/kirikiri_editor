@@ -41,12 +41,17 @@ fun exportScenario(items: List<ScenarioItem>, fileName: String = "output"): File
                     stringBuilder.append("[${item.characterName} ${item.characterFace}]\n")
                 }
 
-                stringBuilder.append("[fontsize=${item.fontSizePx}px]\n")
+                val hasCustomFontSize = item.fontSizePx != DefaultFontSize
+                if (hasCustomFontSize) {
+                    stringBuilder.append("[font size=${item.fontSizePx}px]\n")
+                }
                 if (item.text.isNotEmpty()) {
                     stringBuilder.append(item.text).append("\n")
                 }
                 stringBuilder.append(item.endTag)
-                stringBuilder.append("[fontsize=${DefaultFontSize}px]\n")
+                if (hasCustomFontSize) {
+                    stringBuilder.append("[font size=${DefaultFontSize}px]\n")
+                }
 
                 previousCharacterName = item.characterName
                 previousItemWasGroupBreak = item.groupBreak
