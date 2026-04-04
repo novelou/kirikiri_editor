@@ -90,17 +90,24 @@ fun App() {
                 
                 Spacer(modifier = Modifier.height(8.dp))
 
-                Row {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
                     CharacterSelector(
-                        selectedIndex = appState.selectedCharacterIndex
+                        selectedIndex = appState.selectedCharacterIndex,
+                        modifier = Modifier.weight(7f)
                     )
 
-                    Button(onClick = {
-                        if (appState.exportFileName.isNotEmpty()) {
-                            appState.export(appState.exportFileName)
-                        }
-                    }) {
-                        Text("保存")
+                    Button(
+                        onClick = {
+                            if (appState.exportFileName.isNotEmpty()) {
+                                appState.export(appState.exportFileName)
+                            }
+                        },
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Text("Save")
                     }
                 }
 
